@@ -2,16 +2,15 @@ package routers
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/penggy/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/models"
+	"github.com/snowlyg/EasyDarwin/rtsp"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/EasyDarwin/EasyDarwin/models"
-	"github.com/penggy/EasyGoLib/db"
-
-	"github.com/EasyDarwin/EasyDarwin/rtsp"
-	"github.com/gin-gonic/gin"
 )
 
 /**
@@ -19,9 +18,9 @@ import (
  */
 
 /**
- * @api {get} /api/v1/stream/start 启动拉转推
+ * @api {get} /api/v1/stream/add 启动拉转推
  * @apiGroup stream
- * @apiName StreamStart
+ * @apiName StreamAdd
  * @apiParam {String} url RTSP源地址
  * @apiParam {String} [customPath] 转推时的推送PATH
  * @apiParam {String=TCP,UDP} [transType=TCP] 拉流传输模式
@@ -29,7 +28,7 @@ import (
  * @apiParam {Number} [heartbeatInterval] 拉流时的心跳间隔，毫秒为单位。如果心跳间隔不为0，那拉流时会向源地址以该间隔发送OPTION请求用来心跳保活
  * @apiSuccess (200) {String} ID	拉流的ID。后续可以通过该ID来停止拉流
  */
-func (h *APIHandler) StreamStart(c *gin.Context) {
+func (h *APIHandler) StreamAdd(c *gin.Context) {
 	type Form struct {
 		URL               string `form:"url" binding:"required"`
 		CustomPath        string `form:"customPath"`
@@ -43,54 +42,61 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 		log.Printf("Pull to push err:%v", err)
 		return
 	}
-	agent := fmt.Sprintf("EasyDarwinGo/%s", BuildVersion)
-	if BuildDateTime != "" {
-		agent = fmt.Sprintf("%s(%s)", agent, BuildDateTime)
-	}
-	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), form.URL, int64(form.HeartbeatInterval)*1000, agent)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	if form.CustomPath != "" && !strings.HasPrefix(form.CustomPath, "/") {
-		form.CustomPath = "/" + form.CustomPath
-	}
-	client.CustomPath = form.CustomPath
-	switch strings.ToLower(form.TransType) {
-	case "udp":
-		client.TransType = rtsp.TRANS_TYPE_UDP
-	case "tcp":
-		fallthrough
-	default:
-		client.TransType = rtsp.TRANS_TYPE_TCP
-	}
 
-	pusher := rtsp.NewClientPusher(client)
-	if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Path %s already exists", client.Path))
-		return
-	}
-	err = client.Start(time.Duration(form.IdleTimeout) * time.Second)
-	if err != nil {
-		log.Printf("Pull stream err :%v", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
-		return
-	}
-	log.Printf("Pull to push %v success ", form)
-	rtsp.GetServer().AddPusher(pusher)
+	//agent := fmt.Sprintf("EasyDarwinGo/%s", BuildVersion)
+	//if BuildDateTime != "" {
+	//	agent = fmt.Sprintf("%s(%s)", agent, BuildDateTime)
+	//}
+	//client, err := rtsp.NewRTSPClient(rtsp.GetServer(), form.URL, int64(form.HeartbeatInterval)*1000, agent)
+	//if err != nil {
+	//	c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+	//	return
+	//}
+	//if form.CustomPath != "" && !strings.HasPrefix(form.CustomPath, "/") {
+	//	form.CustomPath = "/" + form.CustomPath
+	//}
+	//client.CustomPath = form.CustomPath
+	//switch strings.ToLower(form.TransType) {
+	//case "udp":
+	//	client.TransType = rtsp.TRANS_TYPE_UDP
+	//case "tcp":
+	//	fallthrough
+	//default:
+	//	client.TransType = rtsp.TRANS_TYPE_TCP
+	//}
+	//
+	//pusher := rtsp.NewClientPusher(client)
+	//if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
+	//	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Path %s already exists", client.Path))
+	//	return
+	//}
+	//
+	//err = client.Start(time.Duration(form.IdleTimeout) * time.Second)
+	//if err != nil {
+	//	log.Printf("Pull stream err :%v", err)
+	//	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
+	//	return
+	//}
+	//
+	//log.Printf("Pull to push %v success ", form)
+	//rtsp.GetServer().AddPusher(pusher)
+
 	// save to db.
 	var stream = models.Stream{
 		URL:               form.URL,
 		CustomPath:        form.CustomPath,
 		IdleTimeout:       form.IdleTimeout,
+		TransType:         form.TransType,
 		HeartbeatInterval: form.HeartbeatInterval,
+		Status:            false,
 	}
 	if db.SQLite.Where(&models.Stream{URL: form.URL}).First(&models.Stream{}).RecordNotFound() {
 		db.SQLite.Create(&stream)
 	} else {
 		db.SQLite.Save(&stream)
 	}
-	c.IndentedJSON(200, pusher.ID())
+	c.IndentedJSON(200, nil)
+	//c.IndentedJSON(200, pusher.ID())
 }
 
 /**
@@ -101,28 +107,114 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
  * @apiUse simpleSuccess
  */
 func (h *APIHandler) StreamStop(c *gin.Context) {
+
 	type Form struct {
 		ID string `form:"id" binding:"required"`
 	}
+
 	var form Form
 	err := c.Bind(&form)
 	if err != nil {
 		log.Printf("stop pull to push err:%v", err)
 		return
 	}
+
+	stream := getStream(form.ID)
 	pushers := rtsp.GetServer().GetPushers()
 	for _, v := range pushers {
-		if v.ID() == form.ID {
+		if v.URL() == stream.URL {
 			v.Stop()
+			rtsp.GetServer().RemovePusher(v)
 			c.IndentedJSON(200, "OK")
 			log.Printf("Stop %v success ", v)
 			if v.RTSPClient != nil {
-				var stream models.Stream
-				stream.URL = v.RTSPClient.URL
-				db.SQLite.Delete(stream)
+				stream.Status = false
+				stream.StreamId = ""
+				db.SQLite.Save(stream)
 			}
 			return
 		}
 	}
+
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", stream.StreamId))
+}
+
+func getStream(formId string) models.Stream {
+	id, _ := strconv.ParseUint(formId, 64, 10)
+	stream := models.Stream{}
+	stream.ID = uint(id)
+	db.SQLite.First(&stream)
+	return stream
+}
+
+/**
+ * @api {get} /api/v1/stream/start 启动推流
+ * @apiGroup stream
+ * @apiName StreamStart
+ * @apiParam {String} id 拉流的ID
+ * @apiUse simpleSuccess
+ */
+func (h *APIHandler) StreamStart(c *gin.Context) {
+
+	type Form struct {
+		ID string `form:"id" binding:"required"`
+	}
+
+	var form Form
+	err := c.Bind(&form)
+	if err != nil {
+		log.Printf("stop pull to push err:%v", err)
+		return
+	}
+
+	stream := getStream(form.ID)
+	agent := fmt.Sprintf("EasyDarwinGo/%s", BuildVersion)
+	if BuildDateTime != "" {
+		agent = fmt.Sprintf("%s(%s)", agent, BuildDateTime)
+	}
+
+	p := rtsp.GetServer().GetPusher(stream.URL)
+	if p != nil {
+		rtsp.GetServer().RemovePusher(p)
+	}
+
+	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), stream.URL, int64(stream.HeartbeatInterval)*1000, agent)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
+		stream.CustomPath = "/" + stream.CustomPath
+	}
+	client.CustomPath = stream.CustomPath
+	switch strings.ToLower(stream.TransType) {
+	case "udp":
+		client.TransType = rtsp.TRANS_TYPE_UDP
+	case "tcp":
+		fallthrough
+	default:
+		client.TransType = rtsp.TRANS_TYPE_TCP
+	}
+
+	pusher := rtsp.NewClientPusher(client)
+	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+	if err != nil {
+		log.Printf("Pull stream err :%v", err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
+		return
+	}
+
+	log.Printf("Pull to push %v success ", stream.StreamId)
+	rtsp.GetServer().AddPusher(pusher)
+
+	c.IndentedJSON(200, "OK")
+	log.Printf("Stop %v success ", pusher)
+	if pusher.RTSPClient != nil {
+		stream.StreamId = pusher.ID()
+		stream.Status = true
+		db.SQLite.Save(stream)
+		return
+	}
+
 	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", form.ID))
 }
