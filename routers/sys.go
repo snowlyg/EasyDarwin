@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EasyDarwin/EasyDarwin/models"
-	"github.com/EasyDarwin/EasyDarwin/rtsp"
 	"github.com/gin-gonic/gin"
 	"github.com/penggy/EasyGoLib/db"
 	"github.com/penggy/EasyGoLib/utils"
 	"github.com/penggy/sessions"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/snowlyg/EasyDarwin/models"
+	"github.com/snowlyg/EasyDarwin/rtsp"
 )
 
 /**
@@ -216,8 +216,8 @@ func (h *APIHandler) Logout(c *gin.Context) {
 func (h *APIHandler) DefaultLoginInfo(c *gin.Context) {
 	var user models.User
 	sec := utils.Conf().Section("http")
-	defUser := sec.Key("default_username").MustString("admin")
-	defPass := sec.Key("default_password").MustString("admin")
+	defUser := sec.Key("default_username").MustString("")
+	defPass := sec.Key("default_password").MustString("")
 	db.SQLite.First(&user, "username = ?", defUser)
 	if utils.MD5(defPass) != user.Password {
 		defPass = ""

@@ -54,13 +54,13 @@ import (
 var Router *gin.Engine
 
 func init() {
-	mime.AddExtensionType(".svg", "image/svg+xml")
-	mime.AddExtensionType(".m3u8", "application/vnd.apple.mpegurl")
+	_ = mime.AddExtensionType(".svg", "image/svg+xml")
+	_ = mime.AddExtensionType(".m3u8", "application/vnd.apple.mpegurl")
 	// mime.AddExtensionType(".m3u8", "application/x-mpegurl")
-	mime.AddExtensionType(".ts", "video/mp2t")
+	_ = mime.AddExtensionType(".ts", "video/mp2t")
 	// prevent on Windows with Dreamware installed, modified registry .css -> application/x-css
 	// see https://stackoverflow.com/questions/22839278/python-built-in-server-not-loading-css
-	mime.AddExtensionType(".css", "text/css; charset=utf-8")
+	_ = mime.AddExtensionType(".css", "text/css; charset=utf-8")
 
 	gin.DisableConsoleColor()
 	gin.SetMode(gin.ReleaseMode)
@@ -96,7 +96,7 @@ func Errors() gin.HandlerFunc {
 func NeedLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if sessions.Default(c).Get("uid") == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, "Unauthorized")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, "请登录")
 			return
 		}
 		c.Next()
@@ -106,14 +106,14 @@ func NeedLogin() gin.HandlerFunc {
 func Init() (err error) {
 	Router = gin.New()
 	pprof.Register(Router)
-	// Router.Use(gin.Logger())
+	Router.Use(gin.Logger())
 	Router.Use(gin.Recovery())
 	Router.Use(Errors())
 	Router.Use(cors.Default())
 
 	store := sessions.NewGormStoreWithOptions(db.SQLite, sessions.GormStoreOptions{
 		TableName: "t_sessions",
-	}, []byte("EasyDarwin@2018"))
+	}, []byte("EasyDarwin@2020"))
 	tokenTimeout := utils.Conf().Section("http").Key("token_timeout").MustInt(7 * 86400)
 	store.Options(sessions.Options{HttpOnly: true, MaxAge: tokenTimeout, Path: "/"})
 	sessionHandle := sessions.Sessions("token", store)
@@ -126,21 +126,23 @@ func Init() (err error) {
 	{
 		api := Router.Group("/api/v1").Use(sessionHandle)
 		api.GET("/login", API.Login)
-		api.GET("/userinfo", API.UserInfo)
 		api.GET("/logout", API.Logout)
+
+		api.GET("/userinfo", API.UserInfo)
 		api.GET("/defaultlogininfo", API.DefaultLoginInfo)
 		api.GET("/modifypassword", NeedLogin(), API.ModifyPassword)
 		api.GET("/serverinfo", API.GetServerInfo)
-		api.GET("/restart", API.Restart)
+		api.GET("/restart", NeedLogin(), API.Restart)
 
-		api.GET("/pushers", API.Pushers)
-		api.GET("/players", API.Players)
+		api.GET("/pushers", NeedLogin(), API.Pushers)
+		api.GET("/players", NeedLogin(), API.Players)
 
-		api.GET("/stream/start", API.StreamStart)
-		api.GET("/stream/stop", API.StreamStop)
+		api.GET("/stream/add", NeedLogin(), API.StreamAdd)
+		api.GET("/stream/start", NeedLogin(), API.StreamStart)
+		api.GET("/stream/stop", NeedLogin(), API.StreamStop)
 
-		api.GET("/record/folders", API.RecordFolders)
-		api.GET("/record/files", API.RecordFiles)
+		api.GET("/record/folders", NeedLogin(), API.RecordFolders)
+		api.GET("/record/files", NeedLogin(), API.RecordFiles)
 	}
 
 	{

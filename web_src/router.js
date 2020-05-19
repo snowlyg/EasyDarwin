@@ -17,26 +17,30 @@ const router = new Router({
         {
             path: '/',
             component: AdminLTE,
-            // meta: { needLogin: true },
             children: [
                 {
                     path: '',
                     component: Dashboard,
+                    meta: { needLogin: true },
                     props: true
                 }, {
                     path: 'pushers/:page?',
                     component: PusherList,
+                    meta: { needLogin: true },
                     props: true
                 }, {
                     path: 'players/:page?',
                     component: PlayerList,
+                    meta: { needLogin: true },
                     props: true
                 }, {
                     path: 'users/:page?',
+                    // meta: { needLogin: true },
                     component: User,
                     props: true                    
                 }, {
                     path: 'about',
+                    meta: { needLogin: true },
                     component: About
                 }, {     
                     path: 'logout',
@@ -44,7 +48,7 @@ const router = new Router({
                       await store.dispatch("logout");
                       window.location.href = `/login.html`;
                     }
-                }, {                                   
+                }, {
                     path: '*',
                     redirect: '/'
                 }

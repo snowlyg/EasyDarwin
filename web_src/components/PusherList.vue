@@ -24,14 +24,15 @@
                               <button type="button" class="btn btn-default" @click.prevent="doSearch" >
                                   <i class="fa fa-search"></i>
                               </button>  
-                          </div>                            
+                          </div>
                       </div>
                   </div>                              
                 </form>            
             </div>
             <div class="box-body">
                 <el-table :data="pushers" stripe class="view-list" :default-sort="{prop: 'startAt', order: 'descending'}" @sort-change="sortChange">
-                    <el-table-column prop="id" label="ID" min-width="120"></el-table-column>
+                    <el-table-column prop="id" label="ID" min-width="60"></el-table-column>
+                    <el-table-column prop="streamId" label="streamId" min-width="120"></el-table-column>
                     <el-table-column label="播放地址" min-width="240" show-overflow-tooltip>
                       <template slot-scope="scope">
                         <span>
@@ -54,11 +55,15 @@
                     <el-table-column prop="outBytes" label="下行流量" min-width="120" :formatter="formatBytes" sortable="custom"></el-table-column>
                     <el-table-column prop="onlines" label="在线人数" min-width="100" sortable="custom"></el-table-column>
                     <el-table-column prop="startAt" label="开始时间" min-width="200" sortable="custom"></el-table-column>
+                    <el-table-column prop="status" label="状态" min-width="60" sortable="custom"></el-table-column>
                     <el-table-column label="操作" min-width="120" fixed="right">
                         <template slot-scope="scope">
                             <div class="btn-group">
-                                <a role="button" class="btn btn-xs btn-danger" @click.prevent="stop(scope.row)">
+                                <a v-if="scope.row.status === '已启动'" role="button" class="btn btn-xs btn-danger" @click.prevent="stop(scope.row)">
                                   <i class="fa fa-stop"></i> 停止
+                                </a>
+                                <a v-else role="button" class="btn btn-xs btn-success" @click.prevent="start(scope.row)">
+                                  <i class="fa fa-play"></i> 启动
                                 </a>
                             </div>
                         </template>
@@ -102,7 +107,7 @@ export default {
     }
   },
   mounted() {
-    // this.$refs["q"].focus();
+    this.$refs["q"].focus();
     this.timer = setInterval(() => {
       this.getPushers();
     }, 3000);
@@ -117,7 +122,7 @@ export default {
   },  
   methods: {
     getPushers() {
-      $.get("/api/v1/pushers", {
+       $.get("/api/v1/pushers", {
         q: this.q,
         start: (this.currentPage -1) * this.pageSize,
         limit: this.pageSize,
@@ -151,11 +156,20 @@ export default {
     stop(row) {
       this.$confirm(`确认停止 ${row.path} ?`, "提示").then(() => {
         $.get("/api/v1/stream/stop", {
-          id: row.id
+            id: row.id
         }).then(data => {
           this.getPushers();
         })
       }).catch(() => {});
+    },
+    start(row) {
+        this.$confirm(`确认启动 ${row.path} ?`, "提示").then(() => {
+            $.get("/api/v1/stream/start", {
+                id: row.id
+            }).then(data => {
+                this.getPushers();
+            })
+        }).catch(() => {});
     }
   },
   beforeRouteEnter(to, from, next) {

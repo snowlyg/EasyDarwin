@@ -11,12 +11,12 @@ import (
 
 	"github.com/penggy/EasyGoLib/db"
 
-	"github.com/EasyDarwin/EasyDarwin/models"
-	"github.com/EasyDarwin/EasyDarwin/routers"
-	"github.com/EasyDarwin/EasyDarwin/rtsp"
 	figure "github.com/common-nighthawk/go-figure"
 	"github.com/penggy/EasyGoLib/utils"
 	"github.com/penggy/service"
+	"github.com/snowlyg/EasyDarwin/models"
+	"github.com/snowlyg/EasyDarwin/routers"
+	"github.com/snowlyg/EasyDarwin/rtsp"
 )
 
 var (
@@ -91,6 +91,7 @@ func (p *program) StopRTSP() (err error) {
 }
 
 func (p *program) Start(s service.Service) (err error) {
+
 	log.Println("********** START **********")
 	if utils.IsPortInUse(p.httpPort) {
 		err = fmt.Errorf("HTTP port[%d] In Use", p.httpPort)
@@ -108,8 +109,9 @@ func (p *program) Start(s service.Service) (err error) {
 	if err != nil {
 		return
 	}
-	p.StartRTSP()
-	p.StartHTTP()
+
+	_ = p.StartRTSP()
+	_ = p.StartHTTP()
 
 	if !utils.Debug {
 		log.Println("log files -->", utils.LogDir())
@@ -117,49 +119,51 @@ func (p *program) Start(s service.Service) (err error) {
 	}
 	go func() {
 		for range routers.API.RestartChan {
-			p.StopHTTP()
-			p.StopRTSP()
+			_ = p.StopHTTP()
+			_ = p.StopRTSP()
 			utils.ReloadConf()
-			p.StartRTSP()
-			p.StartHTTP()
+			_ = p.StartRTSP()
+			_ = p.StartHTTP()
 		}
 	}()
 
 	go func() {
 		log.Printf("demon pull streams")
 		for {
+
 			var streams []models.Stream
-			db.SQLite.Find(&streams)
 			if err := db.SQLite.Find(&streams).Error; err != nil {
 				log.Printf("find stream err:%v", err)
 				return
 			}
+
 			for i := len(streams) - 1; i > -1; i-- {
+
 				v := streams[i]
 				agent := fmt.Sprintf("EasyDarwinGo/%s", routers.BuildVersion)
 				if routers.BuildDateTime != "" {
 					agent = fmt.Sprintf("%s(%s)", agent, routers.BuildDateTime)
 				}
+
 				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent)
 				if err != nil {
 					continue
 				}
+
 				client.CustomPath = v.CustomPath
 
 				pusher := rtsp.NewClientPusher(client)
 				if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
 					continue
 				}
-				err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
-				if err != nil {
-					log.Printf("Pull stream err :%v", err)
-					continue
+
+				if v.Status {
+					rtsp.GetServer().AddPusher(pusher)
 				}
-				rtsp.GetServer().AddPusher(pusher)
 				//streams = streams[0:i]
 				//streams = append(streams[:i], streams[i+1:]...)
 			}
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}()
 	return
@@ -175,6 +179,7 @@ func (p *program) Stop(s service.Service) (err error) {
 }
 
 func main() {
+
 	flag.StringVar(&utils.FlagVarConfFile, "config", "", "configure file path")
 	flag.Parse()
 	tail := flag.Args()
@@ -185,6 +190,7 @@ func main() {
 
 	log.Printf("git commit code:%s", gitCommitCode)
 	log.Printf("build date:%s", buildDateTime)
+
 	routers.BuildVersion = fmt.Sprintf("%s.%s", routers.BuildVersion, gitCommitCode)
 	routers.BuildDateTime = buildDateTime
 

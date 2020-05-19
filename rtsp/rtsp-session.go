@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EasyDarwin/EasyDarwin/models"
 	"github.com/penggy/EasyGoLib/db"
 	"github.com/penggy/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/models"
 
 	"github.com/teris-io/shortid"
 )

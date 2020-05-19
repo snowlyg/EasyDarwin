@@ -55,6 +55,7 @@ func (server *Server) Start() (err error) {
 	ffmpeg := utils.Conf().Section("rtsp").Key("ffmpeg_path").MustString("")
 	m3u8_dir_path := utils.Conf().Section("rtsp").Key("m3u8_dir_path").MustString("")
 	ts_duration_second := utils.Conf().Section("rtsp").Key("ts_duration_second").MustInt(6)
+
 	SaveStreamToLocal := false
 	if (len(ffmpeg) > 0) && localRecord > 0 && len(m3u8_dir_path) > 0 {
 		err := utils.EnsureDir(m3u8_dir_path)
@@ -64,6 +65,7 @@ func (server *Server) Start() (err error) {
 			SaveStreamToLocal = true
 		}
 	}
+
 	go func() { // save to local.
 		pusher2ffmpegMap := make(map[*Pusher]*exec.Cmd)
 		if SaveStreamToLocal {
@@ -204,6 +206,7 @@ func (server *Server) AddPusher(pusher *Pusher) bool {
 		go pusher.Start()
 		server.addPusherCh <- pusher
 	}
+
 	return added
 }
 
