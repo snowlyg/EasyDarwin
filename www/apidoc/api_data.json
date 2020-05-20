@@ -427,10 +427,10 @@
   },
   {
     "type": "get",
-    "url": "/api/v1/stream/start",
+    "url": "/api/v1/stream/add",
     "title": "启动拉转推",
     "group": "stream",
-    "name": "StreamStart",
+    "name": "StreamAdd",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -493,6 +493,38 @@
     "version": "0.0.0",
     "filename": "routers/streams.go",
     "groupTitle": "流管理"
+  },
+  {
+    "type": "get",
+    "url": "/api/v1/stream/start",
+    "title": "启动推流",
+    "group": "stream",
+    "name": "StreamStart",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "id",
+            "description": "<p>拉流的ID</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "routers/streams.go",
+    "groupTitle": "流管理",
+    "success": {
+      "examples": [
+        {
+          "title": "成功",
+          "content": "HTTP/1.1 200 OK",
+          "type": "json"
+        }
+      ]
+    }
   },
   {
     "type": "get",

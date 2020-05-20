@@ -30,7 +30,8 @@ import (
  */
 func (h *APIHandler) StreamAdd(c *gin.Context) {
 	type Form struct {
-		URL               string `form:"url" binding:"required"`
+		Id                uint   `form:"id" `
+		URL               string `form:"source" binding:"required"`
 		CustomPath        string `form:"customPath"`
 		TransType         string `form:"transType"`
 		IdleTimeout       int    `form:"idleTimeout"`
@@ -82,20 +83,26 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 	//rtsp.GetServer().AddPusher(pusher)
 
 	// save to db.
-	var stream = models.Stream{
-		URL:               form.URL,
-		CustomPath:        form.CustomPath,
-		IdleTimeout:       form.IdleTimeout,
-		TransType:         form.TransType,
-		HeartbeatInterval: form.HeartbeatInterval,
-		Status:            false,
-	}
-	if db.SQLite.Where(&models.Stream{URL: form.URL}).First(&models.Stream{}).RecordNotFound() {
-		db.SQLite.Create(&stream)
+	oldStream := models.Stream{}
+	if db.SQLite.Where("id = ? ", form.Id).First(&oldStream).RecordNotFound() {
+		db.SQLite.Create(&models.Stream{
+			URL:               form.URL,
+			CustomPath:        form.CustomPath,
+			IdleTimeout:       form.IdleTimeout,
+			TransType:         form.TransType,
+			HeartbeatInterval: form.HeartbeatInterval,
+			Status:            false,
+		})
 	} else {
-		db.SQLite.Save(&stream)
+		oldStream.URL = form.URL
+		oldStream.CustomPath = form.CustomPath
+		oldStream.TransType = form.TransType
+		oldStream.IdleTimeout = form.IdleTimeout
+		oldStream.HeartbeatInterval = form.HeartbeatInterval
+		oldStream.Status = false
+		db.SQLite.Save(oldStream)
 	}
-	c.IndentedJSON(200, nil)
+	c.IndentedJSON(200, oldStream)
 	//c.IndentedJSON(200, pusher.ID())
 }
 
@@ -217,4 +224,44 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	}
 
 	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", form.ID))
+}
+
+/**
+ * @api {get} /api/v1/stream/del 删除推流
+ * @apiGroup stream
+ * @apiName StreamDel
+ * @apiParam {String} id 拉流的ID
+ * @apiUse simpleSuccess
+ */
+func (h *APIHandler) StreamDel(c *gin.Context) {
+
+	type Form struct {
+		ID string `form:"id" binding:"required"`
+	}
+
+	var form Form
+	err := c.Bind(&form)
+	if err != nil {
+		log.Printf("stop pull to push err:%v", err)
+		return
+	}
+
+	stream := getStream(form.ID)
+	//pushers := rtsp.GetServer().GetPushers()
+	//for _, v := range pushers {
+	//	if v.URL() == stream.URL {
+	//		v.Stop()
+	//		rtsp.GetServer().RemovePusher(v)
+	//		c.IndentedJSON(200, "OK")
+	//		log.Printf("Stop %v success ", v)
+	//		if v.RTSPClient != nil {
+	//			db.SQLite.Delete(stream)
+	//		}
+	//		return
+	//	}
+	//}
+
+	db.SQLite.Unscoped().Delete(stream)
+
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", stream.StreamId))
 }

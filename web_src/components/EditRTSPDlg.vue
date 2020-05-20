@@ -1,9 +1,10 @@
 <template>
-    <FormDlg title="添加拉流" @hide="onHide" @show="onShow" @submit="onSubmit" ref="dlg" :disabled="errors.any() || bLoading">
+    <FormDlg title="编辑拉流" @hide="onHide" @show="onShow" @submit="onSubmit"  ref="dlg" :disabled="errors.any() || bLoading">
         <div :class="['form-group', { 'has-error': errors.has('url')}]">
             <label for="input-url" class="col-sm-3 control-label"><span class="text-red">*</span> RTSP地址</label>
             <div class="col-sm-8">
-                <input type="text" id="input-url" class="form-control" name="url" data-vv-as="RTSP地址" v-validate="'required'" v-model.trim="form.source">
+                <input type="text"  id="input-url" class="form-control" name="url" data-vv-as="RTSP地址" v-validate="'required'" v-model.trim="form.source">
+                <input type="hidden"  id="input-id" class="form-control" name="id" data-vv-as="RTSP地址" v-validate="'required'" v-model.trim="form.id">
                 <span class="help-block">{{errors.first('url')}}</span>
             </div>
         </div>                   
@@ -50,7 +51,7 @@ export default {
     data() {
         return {
             bLoading: false,
-            form: this.defForm()
+            form: this.defForm(),
         }
     },
     components: {
@@ -59,6 +60,7 @@ export default {
     methods: {
         defForm() {
             return {
+                id: '',
                 source: '',
                 customPath: '',
                 transType: 'TCP',
@@ -97,6 +99,8 @@ export default {
             if(data) {
                 Object.assign(this.form, data);
             }
+            console.log(data)
+            console.log(this.form)
             this.$refs['dlg'].show();
         }
     }

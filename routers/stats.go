@@ -39,6 +39,7 @@ import (
  * @apiSuccess (200) {Number} total 总数
  * @apiSuccess (200) {Array} rows 推流列表
  * @apiSuccess (200) {String} rows.id
+ * @apiSuccess (200) {String} rows.streamId
  * @apiSuccess (200) {String} rows.path
  * @apiSuccess (200) {String} rows.transType 传输模式
  * @apiSuccess (200) {Number} rows.inBytes 入口流量
@@ -65,7 +66,6 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 	for _, stream := range streams {
 		var url string
 		var path string
-		var transType string
 		var inBytes int
 		var outBytes int
 		var startAt string
@@ -93,22 +93,25 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 				}
 				startAtTime := utils.DateTime(pusher.StartAt())
 				startAt = startAtTime.String()
-				url, path, transType, inBytes, outBytes, onlines = rtsp, pusher.Path(), pusher.TransType(), pusher.InBytes(), pusher.OutBytes(), len(pusher.GetPlayers())
+				url, path, inBytes, outBytes, onlines = rtsp, pusher.Path(), pusher.InBytes(), pusher.OutBytes(), len(pusher.GetPlayers())
 			}
 		}
 
 		pushers = append(pushers, map[string]interface{}{
-			"id":        stream.ID,
-			"streamId":  stream.StreamId,
-			"url":       url,
-			"path":      path,
-			"source":    stream.URL,
-			"transType": transType,
-			"inBytes":   inBytes,
-			"outBytes":  outBytes,
-			"startAt":   startAt,
-			"onlines":   onlines,
-			"status":    statusText,
+			"id":                stream.ID,
+			"streamId":          stream.StreamId,
+			"url":               url,
+			"path":              path,
+			"source":            stream.URL,
+			"transType":         stream.TransType,
+			"inBytes":           inBytes,
+			"outBytes":          outBytes,
+			"startAt":           startAt,
+			"onlines":           onlines,
+			"idleTimeout":       stream.IdleTimeout,
+			"heartbeatInterval": stream.HeartbeatInterval,
+			"customPath":        stream.CustomPath,
+			"status":            statusText,
 		})
 
 	}
