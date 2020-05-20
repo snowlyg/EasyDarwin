@@ -44,44 +44,6 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		return
 	}
 
-	//agent := fmt.Sprintf("EasyDarwinGo/%s", BuildVersion)
-	//if BuildDateTime != "" {
-	//	agent = fmt.Sprintf("%s(%s)", agent, BuildDateTime)
-	//}
-	//client, err := rtsp.NewRTSPClient(rtsp.GetServer(), form.URL, int64(form.HeartbeatInterval)*1000, agent)
-	//if err != nil {
-	//	c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
-	//	return
-	//}
-	//if form.CustomPath != "" && !strings.HasPrefix(form.CustomPath, "/") {
-	//	form.CustomPath = "/" + form.CustomPath
-	//}
-	//client.CustomPath = form.CustomPath
-	//switch strings.ToLower(form.TransType) {
-	//case "udp":
-	//	client.TransType = rtsp.TRANS_TYPE_UDP
-	//case "tcp":
-	//	fallthrough
-	//default:
-	//	client.TransType = rtsp.TRANS_TYPE_TCP
-	//}
-	//
-	//pusher := rtsp.NewClientPusher(client)
-	//if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
-	//	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Path %s already exists", client.Path))
-	//	return
-	//}
-	//
-	//err = client.Start(time.Duration(form.IdleTimeout) * time.Second)
-	//if err != nil {
-	//	log.Printf("Pull stream err :%v", err)
-	//	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
-	//	return
-	//}
-	//
-	//log.Printf("Pull to push %v success ", form)
-	//rtsp.GetServer().AddPusher(pusher)
-
 	// save to db.
 	oldStream := models.Stream{}
 	if db.SQLite.Where("id = ? ", form.Id).First(&oldStream).RecordNotFound() {
@@ -103,7 +65,6 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		db.SQLite.Save(oldStream)
 	}
 	c.IndentedJSON(200, oldStream)
-	//c.IndentedJSON(200, pusher.ID())
 }
 
 /**
@@ -247,19 +208,6 @@ func (h *APIHandler) StreamDel(c *gin.Context) {
 	}
 
 	stream := getStream(form.ID)
-	//pushers := rtsp.GetServer().GetPushers()
-	//for _, v := range pushers {
-	//	if v.URL() == stream.URL {
-	//		v.Stop()
-	//		rtsp.GetServer().RemovePusher(v)
-	//		c.IndentedJSON(200, "OK")
-	//		log.Printf("Stop %v success ", v)
-	//		if v.RTSPClient != nil {
-	//			db.SQLite.Delete(stream)
-	//		}
-	//		return
-	//	}
-	//}
 
 	db.SQLite.Unscoped().Delete(stream)
 
