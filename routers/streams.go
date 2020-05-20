@@ -47,14 +47,16 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 	// save to db.
 	oldStream := models.Stream{}
 	if db.SQLite.Where("id = ? ", form.Id).First(&oldStream).RecordNotFound() {
-		db.SQLite.Create(&models.Stream{
+		stream := models.Stream{
 			URL:               form.URL,
 			CustomPath:        form.CustomPath,
 			IdleTimeout:       form.IdleTimeout,
 			TransType:         form.TransType,
 			HeartbeatInterval: form.HeartbeatInterval,
 			Status:            false,
-		})
+		}
+		db.SQLite.Create(&stream)
+		c.IndentedJSON(200, stream)
 	} else {
 		oldStream.URL = form.URL
 		oldStream.CustomPath = form.CustomPath
@@ -63,8 +65,9 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		oldStream.HeartbeatInterval = form.HeartbeatInterval
 		oldStream.Status = false
 		db.SQLite.Save(oldStream)
+		c.IndentedJSON(200, oldStream)
 	}
-	c.IndentedJSON(200, oldStream)
+
 }
 
 /**
