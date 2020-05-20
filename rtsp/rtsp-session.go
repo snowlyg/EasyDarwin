@@ -195,11 +195,6 @@ func (session *Session) Start() {
 	logger := session.logger
 	timer := time.Unix(0, 0)
 
-	fmt.Println("=====================")
-	fmt.Println(session)
-	fmt.Println(!session.Stoped)
-	fmt.Println("=====================")
-
 	for !session.Stoped {
 		if _, err := io.ReadFull(session.connRW, buf1); err != nil {
 			session.Stop()

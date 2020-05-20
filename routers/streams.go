@@ -108,10 +108,9 @@ func (h *APIHandler) StreamStop(c *gin.Context) {
 }
 
 func getStream(formId string) models.Stream {
-	id, _ := strconv.ParseUint(formId, 64, 10)
+	id, _ := strconv.ParseUint(formId, 10, 64)
 	stream := models.Stream{}
-	stream.ID = uint(id)
-	db.SQLite.First(&stream)
+	db.SQLite.Where("id = ?", id).First(&stream)
 	return stream
 }
 
