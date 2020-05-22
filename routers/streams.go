@@ -34,6 +34,7 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		URL               string `form:"source" binding:"required"`
 		CustomPath        string `form:"customPath"`
 		TransType         string `form:"transType"`
+		TransRtpType      string `form:"transRtpType"`
 		IdleTimeout       int    `form:"idleTimeout"`
 		HeartbeatInterval int    `form:"heartbeatInterval"`
 	}
@@ -52,6 +53,7 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 			CustomPath:        form.CustomPath,
 			IdleTimeout:       form.IdleTimeout,
 			TransType:         form.TransType,
+			TransRtpType:      form.TransRtpType,
 			HeartbeatInterval: form.HeartbeatInterval,
 			Status:            false,
 		}
@@ -61,6 +63,7 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		oldStream.URL = form.URL
 		oldStream.CustomPath = form.CustomPath
 		oldStream.TransType = form.TransType
+		oldStream.TransRtpType = form.TransRtpType
 		oldStream.IdleTimeout = form.IdleTimeout
 		oldStream.HeartbeatInterval = form.HeartbeatInterval
 		oldStream.Status = false
@@ -148,7 +151,7 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 		rtsp.GetServer().RemovePusher(p)
 	}
 
-	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), stream.URL, int64(stream.HeartbeatInterval)*1000, agent)
+	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), stream.URL, int64(stream.HeartbeatInterval)*1000, agent, stream.TransRtpType)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
 		return
@@ -170,7 +173,7 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
 		if strings.Contains(err.Error(), "rtsp://") {
-			client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(stream.HeartbeatInterval)*1000, agent)
+			client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(stream.HeartbeatInterval)*1000, agent, stream.TransRtpType)
 			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 		}
 		if err != nil {

@@ -24,7 +24,16 @@
                     <!-- <el-radio-button label="Multicast"></el-radio-button> -->
                 </el-radio-group>
             </div>
-        </div>          
+        </div>
+        <div class="form-group">
+            <label for="input-transport" class="col-sm-3 control-label">RTP协议</label>
+            <div class="col-sm-8">
+                <el-radio-group id="input-rtp_transport" v-model.trim="form.transRtpType" size="mini">
+                    <el-radio-button label="MP2T"></el-radio-button>
+                    <el-radio-button label="RTP"></el-radio-button>
+                </el-radio-group>
+            </div>
+        </div>
         <div :class="['form-group', { 'has-error': errors.has('idleTimeout')}]">
             <label for="input-idle-timeout" class="col-sm-3 control-label">空闲超时(秒)</label>
             <div class="col-sm-8">
@@ -64,6 +73,7 @@ export default {
                 source: '',
                 customPath: '',
                 transType: 'TCP',
+                transRtpType: 'RTP',
                 idleTimeout: '',
                 heartbeatInterval: ''
             }

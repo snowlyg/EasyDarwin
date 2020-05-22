@@ -45,6 +45,7 @@ type RTSPClient struct {
 	VControl             string
 	ACodec               string
 	VCodec               string
+	TransRtpType         string
 	OptionIntervalMillis int64
 	SDPRaw               string
 
@@ -69,7 +70,7 @@ func (client *RTSPClient) String() string {
 	return fmt.Sprintf("client[%s]", client.URL)
 }
 
-func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent string) (client *RTSPClient, err error) {
+func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent, transRtpType string) (client *RTSPClient, err error) {
 	url, err := url.Parse(rawUrl)
 	if err != nil {
 		return
@@ -82,10 +83,11 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent 
 		ID:                   shortid.MustGenerate(),
 		Path:                 url.Path,
 		TransType:            TRANS_TYPE_TCP,
-		vRTPChannel:          54282,
-		vRTPControlChannel:   54283,
-		aRTPChannel:          54282,
-		aRTPControlChannel:   54283,
+		TransRtpType:         transRtpType,
+		vRTPChannel:          0,
+		vRTPControlChannel:   1,
+		aRTPChannel:          0,
+		aRTPControlChannel:   1,
 		OptionIntervalMillis: sendOptionMillis,
 		StartAt:              time.Now(),
 		Agent:                agent,
@@ -276,7 +278,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			}
 			headers = make(map[string]string)
 			if client.TransType == TRANS_TYPE_TCP {
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/TCP;unicast;client_port=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
+				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/TCP;unicast;interleaved=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
 			} else {
 				if client.UDPServer == nil {
 					client.UDPServer = &UDPServer{RTSPClient: client}
@@ -287,7 +289,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 					client.logger.Printf("Setup video err.%v", err)
 					return err
 				}
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.VPort, client.UDPServer.VControlPort)
+				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.VPort, client.UDPServer.VControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
@@ -311,7 +313,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			}
 			headers = make(map[string]string)
 			if client.TransType == TRANS_TYPE_TCP {
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/TCP;unicast;interleaved=%d-%d", client.aRTPChannel, client.aRTPControlChannel)
+				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/TCP;unicast;interleaved=%d-%d", client.aRTPChannel, client.aRTPControlChannel)
 			} else {
 				if client.UDPServer == nil {
 					client.UDPServer = &UDPServer{RTSPClient: client}
@@ -321,7 +323,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 					client.logger.Printf("Setup audio err.%v", err)
 					return err
 				}
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
+				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
@@ -578,7 +580,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 
 		if strings.Contains(string(line), "Location:") {
 			newPath = strings.Replace(string(line), "Location: ", "", -1)
-			//client.URL = newPath
+			client.URL = newPath
 		}
 
 		s := string(line)

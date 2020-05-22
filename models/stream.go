@@ -8,6 +8,7 @@ type Stream struct {
 	StreamId          string `gorm:"type:varchar(256)"`
 	CustomPath        string `gorm:"type:varchar(256)"`
 	TransType         string `gorm:"type:varchar(256)"`
+	TransRtpType      string `gorm:"type:varchar(256)"`
 	IdleTimeout       int
 	HeartbeatInterval int
 	Status            bool

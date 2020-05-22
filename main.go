@@ -146,7 +146,7 @@ func (p *program) Start(s service.Service) (err error) {
 					agent = fmt.Sprintf("%s(%s)", agent, routers.BuildDateTime)
 				}
 
-				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent)
+				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
 				if err != nil {
 					continue
 				}
@@ -161,7 +161,7 @@ func (p *program) Start(s service.Service) (err error) {
 					err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 					if err != nil {
 						if strings.Contains(err.Error(), "rtsp://") {
-							client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(v.HeartbeatInterval)*1000, agent)
+							client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
 							err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 						}
 						if err != nil {
