@@ -2,7 +2,7 @@ package routers
 
 import "github.com/penggy/EasyGoLib/utils"
 
-var BuildVersion = "v8.1"
+var BuildVersion = "v9.0"
 var BuildDateTime = ""
 
 type PercentData struct {

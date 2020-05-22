@@ -26,7 +26,7 @@
 
 ## 安装部署
 
-- [下载解压 release 包](https://github.com/EasyDarwin/EasyDarwin/releases)
+- [下载解压 release 包](https://github.com/snowlyg/EasyDarwin/releases)
 
 - 直接运行(Windows)
 
@@ -92,7 +92,7 @@
 
         cd $GOPATH/src/github.com
         mkdir EasyDarwin && cd EasyDarwin
-        git clone https://github.com/EasyDarwin/EasyDarwin.git --depth=1 EasyDarwin
+        git clone https://github.com/snowlyg/EasyDarwin.git --depth=1 EasyDarwin
         cd EasyDarwin
 
 - 以开发模式运行
