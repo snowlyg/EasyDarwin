@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -102,10 +101,11 @@ func (d *Decoder) session(s *Session, f byte, v string) error {
 		}
 		s.Connection, err = d.connection(v)
 	case 'b':
-		if s.Bandwidth == nil {
-			s.Bandwidth = make(Bandwidth)
+		b, err := d.bandwidth(v)
+		if err != nil {
+			return err
 		}
-		err = d.bandwidth(s.Bandwidth, v)
+		s.Bandwidth = append(s.Bandwidth, b)
 	case 'z':
 		s.TimeZone, err = d.timezone(v)
 	case 'k':
@@ -113,7 +113,7 @@ func (d *Decoder) session(s *Session, f byte, v string) error {
 	case 'a':
 		a := d.attr(v)
 		switch a.Name {
-		case ModeInactive, ModeRecvOnly, ModeSendOnly, ModeSendRecv:
+		case Inactive, RecvOnly, SendOnly, SendRecv:
 			s.Mode = a.Name
 		default:
 			s.Attributes = append(s.Attributes, a)
@@ -146,16 +146,17 @@ func (d *Decoder) media(m *Media, f byte, v string) error {
 		}
 		m.Connection = append(m.Connection, conn)
 	case 'b':
-		if m.Bandwidth == nil {
-			m.Bandwidth = make(Bandwidth)
+		b, err := d.bandwidth(v)
+		if err != nil {
+			return err
 		}
-		err = d.bandwidth(m.Bandwidth, v)
+		m.Bandwidth = append(m.Bandwidth, b)
 	case 'k':
 		m.Key = append(m.Key, d.key(v))
 	case 'a':
 		a := d.attr(v)
 		switch a.Name {
-		case ModeInactive, ModeRecvOnly, ModeSendOnly, ModeSendRecv:
+		case Inactive, RecvOnly, SendOnly, SendRecv:
 			m.Mode = a.Name
 		case "rtpmap", "rtcp-fb", "fmtp":
 			err = d.format(m, a)
@@ -177,9 +178,10 @@ func (d *Decoder) format(m *Media, a *Attr) error {
 	if err != nil {
 		return err
 	}
-	f, v := m.Format(pt), p[1]
+	f, v := m.FormatByPayload(uint8(pt)), p[1]
 	if f == nil {
-		return nil
+		f = &Format{Payload: uint8(pt)}
+		m.Format = append(m.Format, f)
 	}
 	switch a.Name {
 	case "rtpmap":
@@ -200,11 +202,11 @@ func (d *Decoder) rtpmap(f *Format, v string) error {
 	f.Name = p[0]
 	var err error
 	if ok {
-		if f.Channels, err = strconv.Atoi(strings.TrimSpace(p[2])); err != nil {
+		if f.Channels, err = strconv.Atoi(p[2]); err != nil {
 			return err
 		}
 	}
-	if f.ClockRate, err = strconv.Atoi(strings.TrimSpace(p[1])); err != nil {
+	if f.ClockRate, err = strconv.Atoi(p[1]); err != nil {
 		return err
 	}
 	return nil
@@ -227,16 +229,17 @@ func (d *Decoder) proto(m *Media, v string) error {
 	if m.Port, err = strconv.Atoi(p[0]); err != nil {
 		return err
 	}
+	if !isRTP(m.Type, m.Proto) {
+		m.FormatDescr = formats
+		return nil
+	}
 	p, _ = d.fields(formats, maxLineSize)
 	for _, it := range p {
-		if it == "*" {
-			continue
-		}
 		pt, err := strconv.Atoi(it)
 		if err != nil {
 			return err
 		}
-		m.Formats = append(m.Formats, &Format{Payload: pt})
+		m.Format = append(m.Format, &Format{Payload: uint8(pt)})
 	}
 	return nil
 }
@@ -247,8 +250,11 @@ func (d *Decoder) origin(v string) (*Origin, error) {
 		return nil, errFormat
 	}
 	o := new(Origin)
-	o.Username, o.SessionID, o.Network, o.Type, o.Address = p[0], p[1], p[3], p[4], p[5]
+	o.Username, o.Network, o.Type, o.Address = p[0], p[3], p[4], p[5]
 	var err error
+	if o.SessionID, err = d.int(p[1]); err != nil {
+		return nil, err
+	}
 	if o.SessionVersion, err = d.int(p[2]); err != nil {
 		return nil, err
 	}
@@ -263,35 +269,48 @@ func (d *Decoder) connection(v string) (*Connection, error) {
 	c := new(Connection)
 	c.Network, c.Type, c.Address = p[0], p[1], p[2]
 	p, ok = d.split(c.Address, '/', 3)
-	if ok {
-		ttl, err := d.int(p[1])
-		if err != nil {
-			return nil, err
+	switch c.Type {
+	case TypeIPv4:
+		if len(p) > 2 {
+			num, err := d.int(p[2])
+			if err != nil {
+				return nil, err
+			}
+			c.AddressNum = int(num)
 		}
-		c.TTL = int(ttl)
-		p = p[1:]
-	}
-	if len(p) > 1 {
-		num, err := d.int(p[1])
-		if err != nil {
-			return nil, err
+		if len(p) > 1 {
+			ttl, err := d.int(p[1])
+			if err != nil {
+				return nil, err
+			}
+			c.Address, c.TTL = p[0], int(ttl)
+			p = append(p[:1], p[2:]...)
 		}
-		c.Address, c.AddressNum = p[0], int(num)
+	case TypeIPv6:
+		if len(p) > 1 {
+			num, err := d.int(p[1])
+			if err != nil {
+				return nil, err
+			}
+			c.Address, c.AddressNum = p[0], int(num)
+		}
 	}
 	return c, nil
 }
 
-func (d *Decoder) bandwidth(b Bandwidth, v string) error {
+func (d *Decoder) bandwidth(v string) (*Bandwidth, error) {
 	p, ok := d.split(v, ':', 2)
 	if !ok {
-		return errFormat
+		return nil, errFormat
 	}
 	val, err := d.int(p[1])
 	if err != nil {
-		return err
+		return nil, err
 	}
-	b[p[0]] = int(val)
-	return nil
+	return &Bandwidth{
+		Type:  p[0],
+		Value: int(val),
+	}, nil
 }
 
 func (d *Decoder) timezone(v string) ([]*TimeZone, error) {
@@ -338,6 +357,9 @@ func (d *Decoder) timing(v string) (*Timing, error) {
 	stop, err := d.time(p[1])
 	if err != nil {
 		return nil, err
+	}
+	if start.IsZero() && stop.IsZero() {
+		return nil, nil
 	}
 	return &Timing{start, stop}, nil
 }

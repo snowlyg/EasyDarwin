@@ -169,16 +169,22 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	pusher := rtsp.NewClientPusher(client)
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
-		log.Printf("Pull stream err :%v", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
-		return
+		if strings.Contains(err.Error(), "rtsp://") {
+			client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(stream.HeartbeatInterval)*1000, agent)
+			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+		}
+		if err != nil {
+			log.Printf("Pull stream err :%v", err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
+			return
+		}
 	}
 
 	log.Printf("Pull to push %v success ", stream.StreamId)
 	rtsp.GetServer().AddPusher(pusher)
 
 	c.IndentedJSON(200, "OK")
-	log.Printf("Stop %v success ", pusher)
+	log.Printf("Start %v success ", pusher)
 	if pusher.RTSPClient != nil {
 		stream.StreamId = pusher.ID()
 		stream.Status = true
@@ -213,5 +219,4 @@ func (h *APIHandler) StreamDel(c *gin.Context) {
 
 	db.SQLite.Unscoped().Delete(stream)
 
-	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", stream.StreamId))
 }

@@ -90,11 +90,13 @@ func (server *Server) Start() (err error) {
 						port := pusher.Server().TCPPort
 						rtsp := fmt.Sprintf("rtsp://localhost:%d%s", port, pusher.Path())
 						paramStr := utils.Conf().Section("rtsp").Key(pusher.Path()).MustString("-c:v copy -c:a aac")
+
 						params := []string{"-fflags", "genpts", "-rtsp_transport", "tcp", "-i", rtsp, "-hls_time", strconv.Itoa(ts_duration_second), "-hls_list_size", "0", m3u8path}
 						if paramStr != "default" {
 							paramsOfThisPath := strings.Split(paramStr, " ")
 							params = append(params[:6], append(paramsOfThisPath, params[6:]...)...)
 						}
+
 						// ffmpeg -i ~/Downloads/720p.mp4 -s 640x360 -g 15 -c:a aac -hls_time 5 -hls_list_size 0 record.m3u8
 						cmd := exec.Command(ffmpeg, params...)
 						f, err := os.OpenFile(path.Join(dir, fmt.Sprintf("log.txt")), os.O_RDWR|os.O_CREATE, 0755)

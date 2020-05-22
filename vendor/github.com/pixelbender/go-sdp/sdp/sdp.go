@@ -1,6 +1,7 @@
 package sdp
 
 import (
+	"strings"
 	"time"
 )
 
@@ -9,23 +10,22 @@ const ContentType = "application/sdp"
 
 // Session represents an SDP session description.
 type Session struct {
-	Version     int         // Protocol Version ("v=")
-	Origin      *Origin     // Origin ("o=")
-	Name        string      // Session Name ("s=")
-	Information string      // Session Information ("i=")
-	URI         string      // URI ("u=")
-	Email       []string    // Email Address ("e=")
-	Phone       []string    // Phone Number ("p=")
-	Connection  *Connection // Connection Data ("c=")
-	Bandwidth   Bandwidth   // Bandwidth ("b=")
-	TimeZone    []*TimeZone // TimeZone ("z=")
-	Key         []*Key      // Encryption Keys ("k=")
-	Timing      *Timing     // Timing ("t=")
-	Repeat      []*Repeat   // Repeat Times ("r=")
-	Attributes              // Session Attributes ("a=")
-	Media       []*Media    // Media Descriptions ("m=")
-
-	Mode string // Streaming mode ("sendrecv", "recvonly", "sendonly", or "inactive")
+	Version     int          // Protocol Version ("v=")
+	Origin      *Origin      // Origin ("o=")
+	Name        string       // Session Name ("s=")
+	Information string       // Session Information ("i=")
+	URI         string       // URI ("u=")
+	Email       []string     // Email Address ("e=")
+	Phone       []string     // Phone Number ("p=")
+	Connection  *Connection  // Connection Data ("c=")
+	Bandwidth   []*Bandwidth // Bandwidth ("b=")
+	TimeZone    []*TimeZone  // TimeZone ("z=")
+	Key         []*Key       // Encryption Keys ("k=")
+	Timing      *Timing      // Timing ("t=")
+	Repeat      []*Repeat    // Repeat Times ("r=")
+	Attributes  Attributes   // Session Attributes ("a=")
+	Mode        string       // Streaming mode ("sendrecv", "recvonly", "sendonly", or "inactive")
+	Media       []*Media     // Media Descriptions ("m=")
 }
 
 // String returns the encoded session description as string.
@@ -35,28 +35,29 @@ func (s *Session) String() string {
 
 // Bytes returns the encoded session description as buffer.
 func (s *Session) Bytes() []byte {
-	return new(Encoder).session(s).Bytes()
+	e := NewEncoder(nil)
+	e.Encode(s)
+	return e.Bytes()
 }
 
 // Origin represents an originator of the session.
 type Origin struct {
-	Username string
-	/**
-		<sess-id> is a numeric string such that the tuple of <username>,
-	      <sess-id>, <nettype>, <addrtype>, and <unicast-address> forms a
-	      globally unique identifier for the session.  The method of
-	      <sess-id> allocation is up to the creating tool, but it has been
-	      suggested that a Network Time Protocol (NTP) format timestamp be
-	      used to ensure uniqueness [13].
-
-		some IPC do is a non-numeric string. i.e., o=RTSP Session 0 0 IN IP4 0.0.0.0
-	*/
-	SessionID      string
+	Username       string
+	SessionID      int64
 	SessionVersion int64
 	Network        string
 	Type           string
 	Address        string
 }
+
+const (
+	NetworkInternet = "IN"
+)
+
+const (
+	TypeIPv4 = "IP4"
+	TypeIPv6 = "IP6"
+)
 
 // Connection contains connection data.
 type Connection struct {
@@ -68,7 +69,10 @@ type Connection struct {
 }
 
 // Bandwidth contains session or media bandwidth information.
-type Bandwidth map[string]int
+type Bandwidth struct {
+	Type  string
+	Value int
+}
 
 // TimeZone represents a time zones change information for a repeated session.
 type TimeZone struct {
@@ -77,7 +81,7 @@ type TimeZone struct {
 }
 
 // Key contains a key exchange information.
-// Deprecated: Not recommended, supported for compatibility with older implementations.
+// Deprecated. Use for backwards compatibility only.
 type Key struct {
 	Method, Value string
 }
@@ -97,19 +101,18 @@ type Repeat struct {
 
 // Media contains media description.
 type Media struct {
-	Type    string
-	Port    int
-	PortNum int
-	Proto   string
-
+	Type        string
+	Port        int
+	PortNum     int
+	Proto       string
 	Information string        // Media Information ("i=")
 	Connection  []*Connection // Connection Data ("c=")
-	Bandwidth   Bandwidth     // Bandwidth ("b=")
+	Bandwidth   []*Bandwidth  // Bandwidth ("b=")
 	Key         []*Key        // Encryption Keys ("k=")
 	Attributes                // Attributes ("a=")
-
-	Mode    string    // Streaming mode ("sendrecv", "recvonly", "sendonly", or "inactive")
-	Formats []*Format // Media Formats ("rtpmap")
+	Mode        string        // Streaming mode ("sendrecv", "recvonly", "sendonly", or "inactive")
+	Format      []*Format     // Media Format for RTP/AVP or RTP/SAVP protocols ("rtpmap", "fmtp", "rtcp-fb")
+	FormatDescr string        // Media Format for other protocols
 }
 
 // Streaming modes.
@@ -162,10 +165,10 @@ loop:
 	return attrs[:n]
 }
 
-// Format returns format description by payload type.
-func (m *Media) Format(pt int) *Format {
-	for _, f := range m.Formats {
-		if f.Payload == pt {
+// FormatByPayload returns format description by payload type.
+func (m *Media) FormatByPayload(payload uint8) *Format {
+	for _, f := range m.Format {
+		if f.Payload == payload {
 			return f
 		}
 	}
@@ -174,7 +177,7 @@ func (m *Media) Format(pt int) *Format {
 
 // Format is a media format description represented by "rtpmap" attributes.
 type Format struct {
-	Payload   int
+	Payload   uint8
 	Name      string
 	ClockRate int
 	Channels  int
@@ -182,21 +185,17 @@ type Format struct {
 	Params    []string // "fmtp" attributes
 }
 
+func (f *Format) String() string {
+	return f.Name
+}
+
 var epoch = time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC)
 
-// GetAttribute returns session or first determined media attribute.
-func (sess *Session) GetAttribute(name string) string {
-	for _, it := range sess.Attributes {
-		if it.Name == name {
-			return it.Value
-		}
+func isRTP(media, proto string) bool {
+	switch media {
+	case "audio", "video":
+		return strings.Contains(proto, "RTP/AVP") || strings.Contains(proto, "RTP/SAVP")|| strings.Contains(proto, "MP2T/AVP")
+	default:
+		return false
 	}
-	for _, media := range sess.Media {
-		for _, it := range media.Attributes {
-			if it.Name == name {
-				return it.Value
-			}
-		}
-	}
-	return ""
 }
