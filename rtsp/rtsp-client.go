@@ -82,10 +82,10 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent 
 		ID:                   shortid.MustGenerate(),
 		Path:                 url.Path,
 		TransType:            TRANS_TYPE_TCP,
-		vRTPChannel:          0,
-		vRTPControlChannel:   1,
-		aRTPChannel:          2,
-		aRTPControlChannel:   3,
+		vRTPChannel:          54282,
+		vRTPControlChannel:   54283,
+		aRTPChannel:          54282,
+		aRTPControlChannel:   54283,
 		OptionIntervalMillis: sendOptionMillis,
 		StartAt:              time.Now(),
 		Agent:                agent,
@@ -276,7 +276,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			}
 			headers = make(map[string]string)
 			if client.TransType == TRANS_TYPE_TCP {
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/TCP;unicast;interleaved=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
+				headers["Transport"] = fmt.Sprintf("MP2T/AVP/TCP;unicast;client_port=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
 			} else {
 				if client.UDPServer == nil {
 					client.UDPServer = &UDPServer{RTSPClient: client}
@@ -311,7 +311,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			}
 			headers = make(map[string]string)
 			if client.TransType == TRANS_TYPE_TCP {
-				headers["Transport"] = fmt.Sprintf("RTP/AVP/TCP;unicast;interleaved=%d-%d", client.aRTPChannel, client.aRTPControlChannel)
+				headers["Transport"] = fmt.Sprintf("MP2T/AVP/TCP;unicast;interleaved=%d-%d", client.aRTPChannel, client.aRTPControlChannel)
 			} else {
 				if client.UDPServer == nil {
 					client.UDPServer = &UDPServer{RTSPClient: client}
@@ -321,7 +321,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 					client.logger.Printf("Setup audio err.%v", err)
 					return err
 				}
-				headers["Transport"] = fmt.Sprintf("RTP/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
+				headers["Transport"] = fmt.Sprintf("MP2T/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
@@ -569,6 +569,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 	respHeader := make(map[string]interface{})
 	var line []byte
 	builder.Reset()
+	newPath := ""
 	for !client.Stoped {
 		isPrefix := false
 		if line, isPrefix, err = client.connRW.ReadLine(); err != nil {
@@ -576,8 +577,8 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 		}
 
 		if strings.Contains(string(line), "Location:") {
-			newPath := strings.Replace(string(line), "Location: ", "", -1)
-			client.URL = newPath
+			newPath = strings.Replace(string(line), "Location: ", "", -1)
+			//client.URL = newPath
 		}
 
 		s := string(line)
@@ -604,7 +605,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 
 			if !(statusCode >= 200 && statusCode <= 300) {
 				if statusCode == 302 {
-					err = fmt.Errorf(client.URL)
+					err = fmt.Errorf(newPath)
 				} else {
 					err = fmt.Errorf("Response StatusCode is :%d", statusCode)
 					return
