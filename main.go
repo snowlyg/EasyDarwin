@@ -50,7 +50,8 @@ func (p *program) StartHTTP() (err error) {
 		Handler:           routers.Router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.httpPort)
+	link := fmt.Sprintf("http://%s:%d", "0.0.0.0", p.httpPort)
+	//link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.httpPort)
 	log.Println("http server start -->", link)
 	go func() {
 		if err := p.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -70,7 +71,8 @@ func (p *program) StartRTSP() (err error) {
 	if p.rtspPort != 554 {
 		sport = fmt.Sprintf(":%d", p.rtspPort)
 	}
-	link := fmt.Sprintf("rtsp://%s%s", utils.LocalIP(), sport)
+	//link := fmt.Sprintf("rtsp://%s%s", utils.LocalIP(), sport)
+	link := fmt.Sprintf("rtsp://%s%s", "0.0.0.0", sport)
 	log.Println("rtsp server start -->", link)
 	go func() {
 		if err := p.rtspServer.Start(); err != nil {
