@@ -45,14 +45,22 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		return
 	}
 
+	transType := 0
+	if form.TransType == "TCP" {
+		transType = 0
+	} else if form.TransType == "UDP" {
+		transType = 1
+	}
+
 	// save to db.
 	oldStream := models.Stream{}
 	if db.SQLite.Where("id = ? ", form.Id).First(&oldStream).RecordNotFound() {
+
 		stream := models.Stream{
 			URL:               form.URL,
 			CustomPath:        form.CustomPath,
 			IdleTimeout:       form.IdleTimeout,
-			TransType:         form.TransType,
+			TransType:         transType,
 			TransRtpType:      form.TransRtpType,
 			HeartbeatInterval: form.HeartbeatInterval,
 			Status:            false,
@@ -62,7 +70,7 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 	} else {
 		oldStream.URL = form.URL
 		oldStream.CustomPath = form.CustomPath
-		oldStream.TransType = form.TransType
+		oldStream.TransType = transType
 		oldStream.TransRtpType = form.TransRtpType
 		oldStream.IdleTimeout = form.IdleTimeout
 		oldStream.HeartbeatInterval = form.HeartbeatInterval
@@ -160,11 +168,11 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 		stream.CustomPath = "/" + stream.CustomPath
 	}
 	client.CustomPath = stream.CustomPath
-	switch strings.ToLower(stream.TransType) {
-	case "udp":
+	switch stream.TransType {
+	case 1:
 		client.TransType = rtsp.TRANS_TYPE_UDP
-	case "tcp":
-		fallthrough
+	case 0:
+		client.TransType = rtsp.TRANS_TYPE_TCP
 	default:
 		client.TransType = rtsp.TRANS_TYPE_TCP
 	}
@@ -174,6 +182,18 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	if err != nil {
 		if strings.Contains(err.Error(), "rtsp://") {
 			client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(stream.HeartbeatInterval)*1000, agent, stream.TransRtpType)
+			if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
+				stream.CustomPath = "/" + stream.CustomPath
+			}
+			client.CustomPath = stream.CustomPath
+			switch stream.TransType {
+			case 1:
+				client.TransType = rtsp.TRANS_TYPE_UDP
+			case 0:
+				client.TransType = rtsp.TRANS_TYPE_TCP
+			default:
+				client.TransType = rtsp.TRANS_TYPE_TCP
+			}
 			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 		}
 		if err != nil {

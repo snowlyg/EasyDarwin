@@ -277,11 +277,8 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 				_url = strings.TrimRight(client.URL, "/") + "/" + strings.TrimLeft(client.VControl, "/")
 			}
 
-			println("================================")
-			println(_url)
-			println("================================")
-
 			headers = make(map[string]string)
+
 			if client.TransType == TRANS_TYPE_TCP {
 				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/TCP;unicast;interleaved=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
 			} else {

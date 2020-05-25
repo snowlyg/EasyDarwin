@@ -65,9 +65,9 @@
 
 - 测试播放
 
-	ffplay -rtsp_transport tcp rtsp://localhost/test
+	ff -rtsp_transport tcp rtsp://localhost/test
 
-	ffplay rtsp://localhost/test 
+	ff rtsp://localhost/test 
 
 ## 效果图
 

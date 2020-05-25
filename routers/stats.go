@@ -97,13 +97,20 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 			}
 		}
 
+		transType := "TCP"
+		if stream.TransType == 0 {
+			transType = "TCP"
+		} else if stream.TransType == 1 {
+			transType = "UDP"
+		}
+
 		pushers = append(pushers, map[string]interface{}{
 			"id":                stream.ID,
 			"streamId":          stream.StreamId,
 			"url":               url,
 			"path":              path,
 			"source":            stream.URL,
-			"transType":         stream.TransType,
+			"transType":         transType,
 			"transRtpType":      stream.TransRtpType,
 			"inBytes":           inBytes,
 			"outBytes":          outBytes,

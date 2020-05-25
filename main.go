@@ -152,6 +152,14 @@ func (p *program) Start(s service.Service) (err error) {
 				}
 
 				client.CustomPath = v.CustomPath
+				switch v.TransType {
+				case 1:
+					client.TransType = rtsp.TRANS_TYPE_UDP
+				case 0:
+					client.TransType = rtsp.TRANS_TYPE_TCP
+				default:
+					client.TransType = rtsp.TRANS_TYPE_TCP
+				}
 
 				pusher := rtsp.NewClientPusher(client)
 				if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
@@ -162,6 +170,16 @@ func (p *program) Start(s service.Service) (err error) {
 					if err != nil {
 						if strings.Contains(err.Error(), "rtsp://") {
 							client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
+							client.CustomPath = v.CustomPath
+							switch v.TransType {
+							case 1:
+								client.TransType = rtsp.TRANS_TYPE_UDP
+							case 0:
+								client.TransType = rtsp.TRANS_TYPE_TCP
+							default:
+								client.TransType = rtsp.TRANS_TYPE_TCP
+							}
+
 							err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 						}
 						if err != nil {
