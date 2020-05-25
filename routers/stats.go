@@ -104,6 +104,7 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 			"path":              path,
 			"source":            stream.URL,
 			"transType":         stream.TransType,
+			"transRtpType":      stream.TransRtpType,
 			"inBytes":           inBytes,
 			"outBytes":          outBytes,
 			"startAt":           startAt,

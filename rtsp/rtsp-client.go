@@ -276,6 +276,11 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			} else {
 				_url = strings.TrimRight(client.URL, "/") + "/" + strings.TrimLeft(client.VControl, "/")
 			}
+
+			println("================================")
+			println(_url)
+			println("================================")
+
 			headers = make(map[string]string)
 			if client.TransType == TRANS_TYPE_TCP {
 				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/TCP;unicast;interleaved=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
@@ -296,7 +301,6 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 				headers["Session"] = session
 			}
 			client.logger.Printf("Parse DESCRIBE response, VIDEO VControl:%s, VCode:%s, url:%s,Session:%s,vRTPChannel:%d,vRTPControlChannel:%d", client.VControl, client.VCodec, _url, session, client.vRTPChannel, client.vRTPControlChannel)
-
 			resp, err = client.RequestWithPath("SETUP", _url, headers, true)
 			if err != nil {
 				return err
