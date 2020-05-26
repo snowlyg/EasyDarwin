@@ -3,7 +3,7 @@ package routers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/penggy/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/EasyGoLib/db"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/rtsp"
 	"log"

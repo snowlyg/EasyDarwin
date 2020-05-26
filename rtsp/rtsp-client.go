@@ -18,7 +18,7 @@ import (
 
 	"github.com/teris-io/shortid"
 
-	"github.com/penggy/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
 
 	"github.com/pixelbender/go-sdp/sdp"
 )
@@ -275,8 +275,17 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error, newPa
 	for _, media := range _sdp.Media {
 		switch media.Type {
 		case "video":
-			client.VControl = media.Attributes.Get("control")
-			client.VCodec = media.Format[0].Name
+			if len(media.Attributes.Get("control")) > 0 {
+				client.VControl = media.Attributes.Get("control")
+			} else {
+				client.VControl = "rtsp://localhost:554/test/1"
+			}
+
+			if len(media.Format) > 0 {
+				client.VCodec = media.Format[0].Name
+			} else {
+				client.VCodec = "RTP/AVP"
+			}
 			var _url = ""
 			if strings.Index(strings.ToLower(client.VControl), "rtsp://") == 0 {
 				_url = client.VControl
@@ -311,8 +320,16 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error, newPa
 			}
 			session, _ = resp.Header["Session"].(string)
 		case "audio":
-			client.AControl = media.Attributes.Get("control")
-			client.ACodec = media.Format[0].Name
+			if len(media.Attributes.Get("control")) > 0 {
+				client.VControl = media.Attributes.Get("control")
+			} else {
+				client.VControl = "rtsp://localhost:554/test/1"
+			}
+			if len(media.Format) > 0 {
+				client.VCodec = media.Format[0].Name
+			} else {
+				client.VCodec = "RTP/AVP"
+			}
 			var _url = ""
 			if strings.Index(strings.ToLower(client.AControl), "rtsp://") == 0 {
 				_url = client.AControl

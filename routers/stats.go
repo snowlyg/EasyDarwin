@@ -2,14 +2,14 @@ package routers
 
 import (
 	"fmt"
-	"github.com/penggy/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/EasyGoLib/db"
 	"github.com/snowlyg/EasyDarwin/models"
 	"log"
 	"strings"
 	//"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/penggy/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
 	"github.com/snowlyg/EasyDarwin/rtsp"
 )
 
@@ -75,6 +75,17 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 		rIPushers := rtsp.Instance.GetPushers()
 		for _, pusher := range rIPushers {
+
+			println("======================")
+			println(pusher.RTSPClient.String())
+			println(pusher.RTSPClient.Status)
+			println(pusher.RTSPClient.Stoped)
+			println(pusher.RTSPClient.SDPRaw)
+			if pusher.RTSPClient.UDPServer != nil {
+				println(pusher.RTSPClient.UDPServer.Status)
+			}
+			println("======================")
+
 			port := pusher.Server().TCPPort
 
 			rtspURl := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
