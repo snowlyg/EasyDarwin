@@ -50,8 +50,8 @@ func (p *program) StartHTTP() (err error) {
 		Handler:           routers.Router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	link := fmt.Sprintf("http://%s:%d", "0.0.0.0", p.httpPort)
-	//link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.httpPort)
+	//link := fmt.Sprintf("http://%s:%d", "0.0.0.0", p.httpPort)
+	link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.httpPort)
 	log.Println("http server start -->", link)
 	go func() {
 		if err := p.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -71,8 +71,8 @@ func (p *program) StartRTSP() (err error) {
 	if p.rtspPort != 554 {
 		sport = fmt.Sprintf(":%d", p.rtspPort)
 	}
-	//link := fmt.Sprintf("rtsp://%s%s", utils.LocalIP(), sport)
-	link := fmt.Sprintf("rtsp://%s%s", "0.0.0.0", sport)
+	link := fmt.Sprintf("rtsp://%s%s", utils.LocalIP(), sport)
+	//link := fmt.Sprintf("rtsp://%s%s", "0.0.0.0", sport)
 	log.Println("rtsp server start -->", link)
 	go func() {
 		if err := p.rtspServer.Start(); err != nil {
@@ -166,26 +166,27 @@ func (p *program) Start(s service.Service) (err error) {
 					continue
 				}
 				if v.Status {
-					err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
-					if err != nil {
-						if strings.Contains(err.Error(), "rtsp://") {
-							client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
-							client.CustomPath = v.CustomPath
-							switch v.TransType {
-							case 1:
-								client.TransType = rtsp.TRANS_TYPE_UDP
-							case 0:
-								client.TransType = rtsp.TRANS_TYPE_TCP
-							default:
-								client.TransType = rtsp.TRANS_TYPE_TCP
-							}
-
-							err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
+					err, newPath := client.Start(time.Duration(v.IdleTimeout) * time.Second)
+					if newPath != "" {
+						client, err := rtsp.NewRTSPClient(rtsp.GetServer(), newPath, int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
+						client.CustomPath = v.CustomPath
+						switch v.TransType {
+						case 1:
+							client.TransType = rtsp.TRANS_TYPE_UDP
+						case 0:
+							client.TransType = rtsp.TRANS_TYPE_TCP
+						default:
+							client.TransType = rtsp.TRANS_TYPE_TCP
 						}
+						err, newPath = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 						if err != nil {
 							log.Printf("Pull stream err :%v", err)
 							return
 						}
+					}
+					if err != nil {
+						log.Printf("Pull stream err :%v", err)
+						return
 					}
 					rtsp.GetServer().AddPusher(pusher)
 				}

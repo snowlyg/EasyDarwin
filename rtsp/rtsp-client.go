@@ -86,8 +86,8 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent,
 		TransRtpType:         transRtpType,
 		vRTPChannel:          0,
 		vRTPControlChannel:   1,
-		aRTPChannel:          0,
-		aRTPControlChannel:   1,
+		aRTPChannel:          2,
+		aRTPControlChannel:   3,
 		OptionIntervalMillis: sendOptionMillis,
 		StartAt:              time.Now(),
 		Agent:                agent,
@@ -175,7 +175,8 @@ func (client *RTSPClient) checkAuth(method string, resp *Response) (string, erro
 	return "", nil
 }
 
-func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
+func (client *RTSPClient) requestStream(timeout time.Duration) (err error, newPath string) {
+
 	defer func() {
 		if err != nil {
 			client.Status = "Error"
@@ -185,15 +186,15 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 	}()
 	l, err := url.Parse(client.URL)
 	if err != nil {
-		return err
+		return err, newPath
 	}
 	if strings.ToLower(l.Scheme) != "rtsp" {
 		err = fmt.Errorf("RTSP url is invalid")
-		return err
+		return err, newPath
 	}
 	if strings.ToLower(l.Hostname()) == "" {
 		err = fmt.Errorf("RTSP url is invalid")
-		return err
+		return err, newPath
 	}
 	port := l.Port()
 	if len(port) == 0 {
@@ -202,7 +203,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 	conn, err := net.DialTimeout("tcp", l.Hostname()+":"+port, timeout)
 	if err != nil {
 		// handle error
-		return err
+		return err, newPath
 	}
 
 	networkBuffer := utils.Conf().Section("rtsp").Key("network_buffer").MustInt(204800)
@@ -217,7 +218,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 	headers := make(map[string]string)
 	headers["Require"] = "implicit-play"
 	// An OPTIONS request returns the request types the server will accept.
-	resp, err := client.Request("OPTIONS", headers)
+	resp, err, newPath := client.Request("OPTIONS", headers)
 	if err != nil {
 		if resp != nil {
 			Authorization, _ := client.checkAuth("OPTIONS", resp)
@@ -226,13 +227,13 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 				headers["Require"] = "implicit-play"
 				headers["Authorization"] = Authorization
 				// An OPTIONS request returns the request types the server will accept.
-				resp, err = client.Request("OPTIONS", headers)
+				resp, err, newPath = client.Request("OPTIONS", headers)
 			}
 			if err != nil {
-				return err
+				return err, newPath
 			}
 		} else {
-			return err
+			return err, newPath
 		}
 	}
 
@@ -241,7 +242,11 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 	// In the typical case, there is one media stream each for audio and video.
 	headers = make(map[string]string)
 	headers["Accept"] = "application/sdp"
-	resp, err = client.Request("DESCRIBE", headers)
+	resp, err, newPath = client.Request("DESCRIBE", headers)
+	if newPath != "" {
+		return nil, newPath
+	}
+
 	if err != nil {
 		if resp != nil {
 			authorization, _ := client.checkAuth("DESCRIBE", resp)
@@ -249,19 +254,21 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 				headers := make(map[string]string)
 				headers["Authorization"] = authorization
 				headers["Accept"] = "application/sdp"
-				resp, err = client.Request("DESCRIBE", headers)
+				resp, err, newPath = client.Request("DESCRIBE", headers)
 			}
 			if err != nil {
-				return err
+				return err, newPath
 			}
 		} else {
-			return err
+			return err, newPath
 		}
 	}
+
 	_sdp, err := sdp.ParseString(resp.Body)
 	if err != nil {
-		return err
+		return err, newPath
 	}
+
 	client.Sdp = _sdp
 	client.SDPRaw = resp.Body
 	session := ""
@@ -280,7 +287,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			headers = make(map[string]string)
 
 			if client.TransType == TRANS_TYPE_TCP {
-				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/TCP;unicast;interleaved=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
+				headers["Transport"] = fmt.Sprintf("RTP/AVP/TCP;unicast;interleaved=%d-%d", client.vRTPChannel, client.vRTPControlChannel)
 			} else {
 				if client.UDPServer == nil {
 					client.UDPServer = &UDPServer{RTSPClient: client}
@@ -289,18 +296,18 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 				err = client.UDPServer.SetupVideo()
 				if err != nil {
 					client.logger.Printf("Setup video err.%v", err)
-					return err
+					return err, newPath
 				}
-				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.VPort, client.UDPServer.VControlPort)
+				headers["Transport"] = fmt.Sprintf("RTP/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.VPort, client.UDPServer.VControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
 				headers["Session"] = session
 			}
 			client.logger.Printf("Parse DESCRIBE response, VIDEO VControl:%s, VCode:%s, url:%s,Session:%s,vRTPChannel:%d,vRTPControlChannel:%d", client.VControl, client.VCodec, _url, session, client.vRTPChannel, client.vRTPControlChannel)
-			resp, err = client.RequestWithPath("SETUP", _url, headers, true)
+			resp, err, newPath = client.RequestWithPath("SETUP", _url, headers, true)
 			if err != nil {
-				return err
+				return err, newPath
 			}
 			session, _ = resp.Header["Session"].(string)
 		case "audio":
@@ -314,7 +321,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 			}
 			headers = make(map[string]string)
 			if client.TransType == TRANS_TYPE_TCP {
-				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/TCP;unicast;interleaved=%d-%d", client.aRTPChannel, client.aRTPControlChannel)
+				headers["Transport"] = fmt.Sprintf("RTP/AVP/TCP;unicast;interleaved=%d-%d", client.aRTPChannel, client.aRTPControlChannel)
 			} else {
 				if client.UDPServer == nil {
 					client.UDPServer = &UDPServer{RTSPClient: client}
@@ -322,18 +329,18 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 				err = client.UDPServer.SetupAudio()
 				if err != nil {
 					client.logger.Printf("Setup audio err.%v", err)
-					return err
+					return err, newPath
 				}
-				headers["Transport"] = fmt.Sprintf(client.TransRtpType+"/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
+				headers["Transport"] = fmt.Sprintf("RTP/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
 				headers["Session"] = session
 			}
 			client.logger.Printf("Parse DESCRIBE response, AUDIO AControl:%s, ACodec:%s, url:%s,Session:%s, aRTPChannel:%d,aRTPControlChannel:%d", client.AControl, client.ACodec, _url, session, client.aRTPChannel, client.aRTPControlChannel)
-			resp, err = client.RequestWithPath("SETUP", _url, headers, true)
+			resp, err, newPath = client.RequestWithPath("SETUP", _url, headers, true)
 			if err != nil {
-				return err
+				return err, newPath
 			}
 			session, _ = resp.Header["Session"].(string)
 		}
@@ -342,11 +349,11 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 	if session != "" {
 		headers["Session"] = session
 	}
-	resp, err = client.Request("PLAY", headers)
+	resp, err, newPath = client.Request("PLAY", headers)
 	if err != nil {
-		return err
+		return err, newPath
 	}
-	return nil
+	return nil, newPath
 }
 
 func (client *RTSPClient) startStream() {
@@ -497,12 +504,12 @@ func (client *RTSPClient) startStream() {
 	}
 }
 
-func (client *RTSPClient) Start(timeout time.Duration) (err error) {
+func (client *RTSPClient) Start(timeout time.Duration) (err error, newPath string) {
 	if timeout == 0 {
 		timeoutMillis := utils.Conf().Section("rtsp").Key("timeout").MustInt(0)
 		timeout = time.Duration(timeoutMillis) * time.Millisecond
 	}
-	err = client.requestStream(timeout)
+	err, newPath = client.requestStream(timeout)
 	if err != nil {
 		return
 	}
@@ -529,7 +536,7 @@ func (client *RTSPClient) Stop() {
 	}
 }
 
-func (client *RTSPClient) RequestWithPath(method string, path string, headers map[string]string, needResp bool) (resp *Response, err error) {
+func (client *RTSPClient) RequestWithPath(method string, path string, headers map[string]string, needResp bool) (resp *Response, err error, newPath string) {
 	logger := client.logger
 	headers["User-Agent"] = client.Agent
 	if len(headers["Authorization"]) == 0 {
@@ -562,8 +569,9 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 	client.connRW.Flush()
 
 	if !needResp {
-		return nil, nil
+		return nil, nil, ""
 	}
+
 	lineCount := 0
 	statusCode := 200
 	status := ""
@@ -572,7 +580,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 	respHeader := make(map[string]interface{})
 	var line []byte
 	builder.Reset()
-	newPath := ""
+
 	for !client.Stoped {
 		isPrefix := false
 		if line, isPrefix, err = client.connRW.ReadLine(); err != nil {
@@ -582,9 +590,14 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 		if strings.Contains(string(line), "Location:") {
 			newPath = strings.Replace(string(line), "Location: ", "", -1)
 			client.URL = newPath
+			return
 		}
-
 		s := string(line)
+		println("======================")
+		println(line)
+		println(s)
+		println("======================")
+
 		builder.Write(line)
 		if !isPrefix {
 			builder.WriteString("\r\n")
@@ -607,12 +620,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 			logger.Printf("<<<[IN]\n%s", builder.String())
 
 			if !(statusCode >= 200 && statusCode <= 300) {
-				if statusCode == 302 {
-					err = fmt.Errorf(newPath)
-				} else {
-					err = fmt.Errorf("Response StatusCode is :%d", statusCode)
-					return
-				}
+				err = fmt.Errorf("Response StatusCode is :%d", statusCode)
 			}
 			return
 		}
@@ -648,6 +656,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 			splits := strings.Split(s, ":")
 			sid = strings.TrimSpace(splits[1])
 		}
+
 		//if strings.Index(s, "CSeq:") == 0 {
 		//	splits := strings.Split(s, ":")
 		//	cseq, err = strconv.Atoi(strings.TrimSpace(splits[1]))
@@ -656,6 +665,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 		//		return
 		//	}
 		//}
+
 		if strings.Index(s, "Content-Length:") == 0 {
 			splits := strings.Split(s, ":")
 			contentLen, err = strconv.Atoi(strings.TrimSpace(splits[1]))
@@ -665,16 +675,18 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 		}
 
 	}
+
 	if client.Stoped {
 		err = fmt.Errorf("Client Stoped.")
 	}
+
 	return
 }
 
-func (client *RTSPClient) Request(method string, headers map[string]string) (*Response, error) {
+func (client *RTSPClient) Request(method string, headers map[string]string) (*Response, error, string) {
 	l, err := url.Parse(client.URL)
 	if err != nil {
-		return nil, fmt.Errorf("Url parse error:%v", err)
+		return nil, fmt.Errorf("Url parse error:%v", err), ""
 	}
 	l.User = nil
 	return client.RequestWithPath(method, l.String(), headers, true)
@@ -686,7 +698,7 @@ func (client *RTSPClient) RequestNoResp(method string, headers map[string]string
 		return fmt.Errorf("Url parse error:%v", err)
 	}
 	l.User = nil
-	if _, err = client.RequestWithPath(method, l.String(), headers, false); err != nil {
+	if _, err, _ = client.RequestWithPath(method, l.String(), headers, false); err != nil {
 		return err
 	}
 	return nil

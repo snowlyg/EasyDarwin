@@ -178,24 +178,22 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	}
 
 	pusher := rtsp.NewClientPusher(client)
-	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
-	if err != nil {
-		if strings.Contains(err.Error(), "rtsp://") {
-			client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), err.Error(), int64(stream.HeartbeatInterval)*1000, agent, stream.TransRtpType)
-			if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
-				stream.CustomPath = "/" + stream.CustomPath
-			}
-			client.CustomPath = stream.CustomPath
-			switch stream.TransType {
-			case 1:
-				client.TransType = rtsp.TRANS_TYPE_UDP
-			case 0:
-				client.TransType = rtsp.TRANS_TYPE_TCP
-			default:
-				client.TransType = rtsp.TRANS_TYPE_TCP
-			}
-			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+	err, newPath := client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+	if newPath != "" {
+		client, _ := rtsp.NewRTSPClient(rtsp.GetServer(), newPath, int64(stream.HeartbeatInterval)*1000, agent, stream.TransRtpType)
+		if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
+			stream.CustomPath = "/" + stream.CustomPath
 		}
+		client.CustomPath = stream.CustomPath
+		switch stream.TransType {
+		case 1:
+			client.TransType = rtsp.TRANS_TYPE_UDP
+		case 0:
+			client.TransType = rtsp.TRANS_TYPE_TCP
+		default:
+			client.TransType = rtsp.TRANS_TYPE_TCP
+		}
+		err, newPath = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 		if err != nil {
 			log.Printf("Pull stream err :%v", err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
