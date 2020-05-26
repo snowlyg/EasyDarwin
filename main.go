@@ -168,7 +168,7 @@ func (p *program) Start(s service.Service) (err error) {
 				if v.Status {
 					err, newPath := client.Start(time.Duration(v.IdleTimeout) * time.Second)
 					if newPath != "" {
-						client, err := rtsp.NewRTSPClient(rtsp.GetServer(), newPath, int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
+						client, err = rtsp.NewRTSPClient(rtsp.GetServer(), newPath, int64(v.HeartbeatInterval)*1000, agent, v.TransRtpType)
 						client.CustomPath = v.CustomPath
 						switch v.TransType {
 						case 1:

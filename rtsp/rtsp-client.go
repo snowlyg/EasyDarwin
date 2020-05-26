@@ -593,10 +593,6 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 			return
 		}
 		s := string(line)
-		println("======================")
-		println(line)
-		println(s)
-		println("======================")
 
 		builder.Write(line)
 		if !isPrefix {

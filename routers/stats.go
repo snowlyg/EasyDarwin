@@ -71,17 +71,18 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 		var startAt string
 		var onlines int
 		statusText := "已停止"
+		streamID := ""
 
 		rIPushers := rtsp.Instance.GetPushers()
 		for _, pusher := range rIPushers {
 			port := pusher.Server().TCPPort
 
-			rtsp := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
+			rtspURl := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
 			if port == 554 {
-				rtsp = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
+				rtspURl = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
 			}
 
-			if form.Q != "" && !strings.Contains(strings.ToLower(rtsp), strings.ToLower(form.Q)) {
+			if form.Q != "" && !strings.Contains(strings.ToLower(rtspURl), strings.ToLower(form.Q)) {
 				continue
 			}
 
@@ -91,9 +92,10 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 						statusText = "已启动"
 					}
 				}
+				streamID = stream.StreamId
 				startAtTime := utils.DateTime(pusher.StartAt())
 				startAt = startAtTime.String()
-				url, path, inBytes, outBytes, onlines = rtsp, pusher.Path(), pusher.InBytes(), pusher.OutBytes(), len(pusher.GetPlayers())
+				url, path, inBytes, outBytes, onlines = rtspURl, pusher.Path(), pusher.InBytes(), pusher.OutBytes(), len(pusher.GetPlayers())
 			}
 		}
 
@@ -106,7 +108,7 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 		pushers = append(pushers, map[string]interface{}{
 			"id":                stream.ID,
-			"streamId":          stream.StreamId,
+			"streamId":          streamID,
 			"url":               url,
 			"path":              path,
 			"source":            stream.URL,

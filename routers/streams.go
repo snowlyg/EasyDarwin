@@ -204,16 +204,16 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	log.Printf("Pull to push %v success ", stream.StreamId)
 	rtsp.GetServer().AddPusher(pusher)
 
-	c.IndentedJSON(200, "OK")
-	log.Printf("Start %v success ", pusher)
-	if pusher.RTSPClient != nil {
+	if pusher.RTSPClient != nil && !pusher.Stoped() {
 		stream.StreamId = pusher.ID()
 		stream.Status = true
 		db.SQLite.Save(stream)
+		c.IndentedJSON(200, "OK")
+		log.Printf("Start %v success ", pusher)
 		return
 	}
 
-	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", form.ID))
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found or not start", form.ID))
 }
 
 /**
