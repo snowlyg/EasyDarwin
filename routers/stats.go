@@ -75,17 +75,6 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 		rIPushers := rtsp.Instance.GetPushers()
 		for _, pusher := range rIPushers {
-
-			println("======================")
-			println(pusher.RTSPClient.String())
-			println(pusher.RTSPClient.Status)
-			println(pusher.RTSPClient.Stoped)
-			println(pusher.RTSPClient.SDPRaw)
-			if pusher.RTSPClient.UDPServer != nil {
-				println(pusher.RTSPClient.UDPServer.Status)
-			}
-			println("======================")
-
 			port := pusher.Server().TCPPort
 
 			rtspURl := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
