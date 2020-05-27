@@ -1,7 +1,7 @@
 package rtsp
 
 import (
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"sync"
 	"time"
 )
@@ -16,6 +16,7 @@ type Player struct {
 	paused               bool
 }
 
+// NewPlayer 新建播放器
 func NewPlayer(session *Session, pusher *Pusher) (player *Player) {
 	queueLimit := utils.Conf().Section("rtsp").Key("player_queue_limit").MustInt(0)
 	dropPacketWhenPaused := utils.Conf().Section("rtsp").Key("drop_packet_when_paused").MustInt(0)
@@ -35,6 +36,7 @@ func NewPlayer(session *Session, pusher *Pusher) (player *Player) {
 	return
 }
 
+// QueueRTP RTP队列
 func (player *Player) QueueRTP(pack *RTPPack) *Player {
 	logger := player.logger
 	if pack == nil {
@@ -58,6 +60,7 @@ func (player *Player) QueueRTP(pack *RTPPack) *Player {
 	return player
 }
 
+// Start 启动播放器
 func (player *Player) Start() {
 	logger := player.logger
 	timer := time.Unix(0, 0)
@@ -93,6 +96,7 @@ func (player *Player) Start() {
 	}
 }
 
+// Pause 暂停播放器
 func (player *Player) Pause(paused bool) {
 	if paused {
 		player.logger.Printf("Player %s, Pause\n", player.String())

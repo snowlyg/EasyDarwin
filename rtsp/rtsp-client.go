@@ -6,6 +6,9 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
+	"github.com/pixelbender/go-sdp/sdp"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/teris-io/shortid"
 	"io"
 	"log"
 	"net"
@@ -15,12 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/teris-io/shortid"
-
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
-
-	"github.com/pixelbender/go-sdp/sdp"
 )
 
 type RTSPClient struct {
@@ -71,7 +68,7 @@ func (client *RTSPClient) String() string {
 }
 
 func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent, transRtpType string) (client *RTSPClient, err error) {
-	url, err := url.Parse(rawUrl)
+	rUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return
 	}
@@ -81,7 +78,7 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent,
 		Stoped:               false,
 		URL:                  rawUrl,
 		ID:                   shortid.MustGenerate(),
-		Path:                 url.Path,
+		Path:                 rUrl.Path,
 		TransType:            TRANS_TYPE_TCP,
 		TransRtpType:         transRtpType,
 		vRTPChannel:          0,
@@ -100,6 +97,7 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent,
 	return
 }
 
+// DigestAuth 认证
 func DigestAuth(authLine string, method string, URL string) (string, error) {
 	l, err := url.Parse(URL)
 	if err != nil {
@@ -138,6 +136,7 @@ func DigestAuth(authLine string, method string, URL string) (string, error) {
 	return Authorization, nil
 }
 
+// checkAuth 检查认证
 func (client *RTSPClient) checkAuth(method string, resp *Response) (string, error) {
 	if resp.StatusCode == 401 {
 		// need auth.
@@ -146,9 +145,8 @@ func (client *RTSPClient) checkAuth(method string, resp *Response) (string, erro
 
 		if ok {
 			for _, authLine := range auths {
-
 				if strings.IndexAny(authLine, "Digest") == 0 {
-					// 					realm="HipcamRealServer",
+					// realm="HipcamRealServer",
 					// nonce="3b27a446bfa49b0c48c3edb83139543d"
 					client.authLine = authLine
 					return DigestAuth(authLine, method, client.URL)
@@ -156,7 +154,6 @@ func (client *RTSPClient) checkAuth(method string, resp *Response) (string, erro
 					// not support yet
 					// TODO..
 				}
-
 			}
 			return "", fmt.Errorf("auth error")
 		} else {
@@ -175,6 +172,7 @@ func (client *RTSPClient) checkAuth(method string, resp *Response) (string, erro
 	return "", nil
 }
 
+// requestStream 请求媒体流
 func (client *RTSPClient) requestStream(timeout time.Duration) (err error, newPath string) {
 
 	defer func() {
@@ -373,6 +371,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error, newPa
 	return nil, newPath
 }
 
+// startStream 开启媒体流
 func (client *RTSPClient) startStream() {
 	startTime := time.Now()
 	loggerTime := time.Now().Add(-10 * time.Second)
@@ -521,6 +520,7 @@ func (client *RTSPClient) startStream() {
 	}
 }
 
+// Start 启动RTSP客户端
 func (client *RTSPClient) Start(timeout time.Duration) (err error, newPath string) {
 	if timeout == 0 {
 		timeoutMillis := utils.Conf().Section("rtsp").Key("timeout").MustInt(0)
@@ -534,6 +534,7 @@ func (client *RTSPClient) Start(timeout time.Duration) (err error, newPath strin
 	return
 }
 
+// Stop 停止RTSP客户端
 func (client *RTSPClient) Stop() {
 	if client.Stoped {
 		return
@@ -553,6 +554,7 @@ func (client *RTSPClient) Stop() {
 	}
 }
 
+// RequestWithPath 发起请求
 func (client *RTSPClient) RequestWithPath(method string, path string, headers map[string]string, needResp bool) (resp *Response, err error, newPath string) {
 	logger := client.logger
 	headers["User-Agent"] = client.Agent
@@ -696,6 +698,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 	return
 }
 
+// Request 请求
 func (client *RTSPClient) Request(method string, headers map[string]string) (*Response, error, string) {
 	l, err := url.Parse(client.URL)
 	if err != nil {
@@ -705,6 +708,7 @@ func (client *RTSPClient) Request(method string, headers map[string]string) (*Re
 	return client.RequestWithPath(method, l.String(), headers, true)
 }
 
+//RequestNoResp 无响应请求
 func (client *RTSPClient) RequestNoResp(method string, headers map[string]string) (err error) {
 	l, err := url.Parse(client.URL)
 	if err != nil {

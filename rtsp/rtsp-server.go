@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 )
 
 type Server struct {
@@ -40,6 +40,7 @@ func GetServer() *Server {
 	return Instance
 }
 
+// Start 启动
 func (server *Server) Start() (err error) {
 	logger := server.logger
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(":%d", server.TCPPort))
@@ -53,21 +54,21 @@ func (server *Server) Start() (err error) {
 
 	localRecord := utils.Conf().Section("rtsp").Key("save_stream_to_local").MustInt(0)
 	ffmpeg := utils.Conf().Section("rtsp").Key("ffmpeg_path").MustString("")
-	m3u8_dir_path := utils.Conf().Section("rtsp").Key("m3u8_dir_path").MustString("")
-	ts_duration_second := utils.Conf().Section("rtsp").Key("ts_duration_second").MustInt(6)
+	m3u8DirPath := utils.Conf().Section("rtsp").Key("m3u8_dir_path").MustString("")
+	tsDurationSecond := utils.Conf().Section("rtsp").Key("ts_duration_second").MustInt(6)
 
 	SaveStreamToLocal := false
-	if (len(ffmpeg) > 0) && localRecord > 0 && len(m3u8_dir_path) > 0 {
-		err := utils.EnsureDir(m3u8_dir_path)
+	if (len(ffmpeg) > 0) && localRecord > 0 && len(m3u8DirPath) > 0 {
+		err := utils.EnsureDir(m3u8DirPath)
 		if err != nil {
-			logger.Printf("Create m3u8_dir_path[%s] err:%v.", m3u8_dir_path, err)
+			logger.Printf("Create m3u8_dir_path[%s] err:%v.", m3u8DirPath, err)
 		} else {
 			SaveStreamToLocal = true
 		}
 	}
 
-	go func() { // save to local.
-		pusher2ffmpegMap := make(map[*Pusher]*exec.Cmd)
+	go func() { // 保持到本地
+		pusher2FfmpegMap := make(map[*Pusher]*exec.Cmd)
 		if SaveStreamToLocal {
 			logger.Printf("Prepare to save stream to local....")
 			defer logger.Printf("End save stream to local....")
@@ -80,7 +81,7 @@ func (server *Server) Start() (err error) {
 			case pusher, addChnOk = <-server.addPusherCh:
 				if SaveStreamToLocal {
 					if addChnOk {
-						dir := path.Join(m3u8_dir_path, pusher.Path(), time.Now().Format("20060102"))
+						dir := path.Join(m3u8DirPath, pusher.Path(), time.Now().Format("20060102"))
 						err := utils.EnsureDir(dir)
 						if err != nil {
 							logger.Printf("EnsureDir:[%s] err:%v.", dir, err)
@@ -88,14 +89,15 @@ func (server *Server) Start() (err error) {
 						}
 						m3u8path := path.Join(dir, fmt.Sprintf("out.m3u8"))
 						port := pusher.Server().TCPPort
-						rtsp := fmt.Sprintf("rtsp://localhost:%d%s", port, pusher.Path())
+						rtsp := fmt.Sprintf("rtsp://%v:%d%s", utils.LocalIP(), port, pusher.Path())
 						paramStr := utils.Conf().Section("rtsp").Key(pusher.Path()).MustString("-c:v copy -c:a aac")
 
-						params := []string{"-fflags", "genpts", "-rtsp_transport", "tcp", "-i", rtsp, "-hls_time", strconv.Itoa(ts_duration_second), "-hls_list_size", "0", m3u8path}
+						params := []string{"-fflags", "genpts", "-rtsp_transport", "tcp", "-i", rtsp, "-hls_time", strconv.Itoa(tsDurationSecond), "-hls_list_size", "0", m3u8path}
 						if paramStr != "default" {
 							paramsOfThisPath := strings.Split(paramStr, " ")
 							params = append(params[:6], append(paramsOfThisPath, params[6:]...)...)
 						}
+						// rtsp 转 hls
 
 						// ffmpeg -i ~/Downloads/720p.mp4 -s 640x360 -g 15 -c:a aac -hls_time 5 -hls_list_size 0 record.m3u8
 						cmd := exec.Command(ffmpeg, params...)
@@ -108,7 +110,7 @@ func (server *Server) Start() (err error) {
 						if err != nil {
 							logger.Printf("Start ffmpeg err:%v", err)
 						}
-						pusher2ffmpegMap[pusher] = cmd
+						pusher2FfmpegMap[pusher] = cmd
 						logger.Printf("add ffmpeg [%v] to pull stream from pusher[%v]", cmd, pusher)
 					} else {
 						logger.Printf("addPusherChan closed")
@@ -117,7 +119,7 @@ func (server *Server) Start() (err error) {
 			case pusher, removeChnOk = <-server.removePusherCh:
 				if SaveStreamToLocal {
 					if removeChnOk {
-						cmd := pusher2ffmpegMap[pusher]
+						cmd := pusher2FfmpegMap[pusher]
 						proc := cmd.Process
 						if proc != nil {
 							logger.Printf("prepare to SIGTERM to process:%v", proc)
@@ -132,17 +134,17 @@ func (server *Server) Start() (err error) {
 							// }
 							logger.Printf("process:%v terminate.", proc)
 						}
-						delete(pusher2ffmpegMap, pusher)
+						delete(pusher2FfmpegMap, pusher)
 						logger.Printf("delete ffmpeg from pull stream from pusher[%v]", pusher)
 					} else {
-						for _, cmd := range pusher2ffmpegMap {
+						for _, cmd := range pusher2FfmpegMap {
 							proc := cmd.Process
 							if proc != nil {
 								logger.Printf("prepare to SIGTERM to process:%v", proc)
 								proc.Signal(syscall.SIGTERM)
 							}
 						}
-						pusher2ffmpegMap = make(map[*Pusher]*exec.Cmd)
+						pusher2FfmpegMap = make(map[*Pusher]*exec.Cmd)
 						logger.Printf("removePusherChan closed")
 					}
 				}
@@ -175,12 +177,13 @@ func (server *Server) Start() (err error) {
 	return
 }
 
+// Stop 停止
 func (server *Server) Stop() {
 	logger := server.logger
 	logger.Println("rtsp server stop on", server.TCPPort)
 	server.Stoped = true
 	if server.TCPListener != nil {
-		server.TCPListener.Close()
+		_ = server.TCPListener.Close()
 		server.TCPListener = nil
 	}
 	server.pushersLock.Lock()
@@ -191,6 +194,7 @@ func (server *Server) Stop() {
 	close(server.removePusherCh)
 }
 
+// AddPusher 添加推流进程
 func (server *Server) AddPusher(pusher *Pusher) bool {
 	logger := server.logger
 	added := false
@@ -212,6 +216,7 @@ func (server *Server) AddPusher(pusher *Pusher) bool {
 	return added
 }
 
+// TryAttachToPusher 尝试推流
 func (server *Server) TryAttachToPusher(session *Session) (int, *Pusher) {
 	server.pushersLock.Lock()
 	attached := 0
@@ -229,6 +234,7 @@ func (server *Server) TryAttachToPusher(session *Session) (int, *Pusher) {
 	return attached, pusher
 }
 
+// RemovePusher 移除推流
 func (server *Server) RemovePusher(pusher *Pusher) {
 	logger := server.logger
 	removed := false
@@ -244,6 +250,7 @@ func (server *Server) RemovePusher(pusher *Pusher) {
 	}
 }
 
+// GetPusher 获取推流
 func (server *Server) GetPusher(path string) (pusher *Pusher) {
 	server.pushersLock.RLock()
 	pusher = server.pushers[path]
@@ -251,6 +258,7 @@ func (server *Server) GetPusher(path string) (pusher *Pusher) {
 	return
 }
 
+// GetPushers 获取推流列表
 func (server *Server) GetPushers() (pushers map[string]*Pusher) {
 	pushers = make(map[string]*Pusher)
 	server.pushersLock.RLock()
@@ -261,6 +269,7 @@ func (server *Server) GetPushers() (pushers map[string]*Pusher) {
 	return
 }
 
+// GetPusherSize 获取推流数量
 func (server *Server) GetPusherSize() (size int) {
 	server.pushersLock.RLock()
 	size = len(server.pushers)

@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"github.com/snowlyg/EasyDarwin/models"
 
 	"github.com/teris-io/shortid"
@@ -137,12 +137,13 @@ func (session *Session) String() string {
 	return fmt.Sprintf("session[%v][%v][%s][%s][%s]", session.Type, session.TransType, session.Path, session.ID, session.Conn.RemoteAddr().String())
 }
 
+// NewSession 新建 Session
 func NewSession(server *Server, conn net.Conn) *Session {
 	networkBuffer := utils.Conf().Section("rtsp").Key("network_buffer").MustInt(204800)
 	timeoutMillis := utils.Conf().Section("rtsp").Key("timeout").MustInt(0)
 	timeoutTCPConn := &RichConn{conn, time.Duration(timeoutMillis) * time.Millisecond}
 	authorizationEnable := utils.Conf().Section("rtsp").Key("authorization_enable").MustInt(0)
-	close_old := utils.Conf().Section("rtsp").Key("close_old").MustInt(0)
+	closeOld := utils.Conf().Section("rtsp").Key("close_old").MustInt(0)
 	debugLogEnable := utils.Conf().Section("rtsp").Key("debug_log_enable").MustInt(0)
 	session := &Session{
 		ID:                  shortid.MustGenerate(),
@@ -159,7 +160,7 @@ func NewSession(server *Server, conn net.Conn) *Session {
 		vRTPControlChannel:  -1,
 		aRTPChannel:         -1,
 		aRTPControlChannel:  -1,
-		closeOld:            close_old != 0,
+		closeOld:            closeOld != 0,
 	}
 
 	session.logger = log.New(os.Stdout, fmt.Sprintf("[%s]", session.ID), log.LstdFlags|log.Lshortfile)
@@ -169,6 +170,7 @@ func NewSession(server *Server, conn net.Conn) *Session {
 	return session
 }
 
+// Stop 停止
 func (session *Session) Stop() {
 	if session.Stoped {
 		return
@@ -178,8 +180,8 @@ func (session *Session) Stop() {
 		h()
 	}
 	if session.Conn != nil {
-		session.connRW.Flush()
-		session.Conn.Close()
+		_ = session.connRW.Flush()
+		_ = session.Conn.Close()
 		session.Conn = nil
 	}
 	if session.UDPClient != nil {
@@ -188,6 +190,7 @@ func (session *Session) Stop() {
 	}
 }
 
+// Start 启动
 func (session *Session) Start() {
 	defer session.Stop()
 	buf1 := make([]byte, 1)
@@ -250,13 +253,15 @@ func (session *Session) Start() {
 					Buffer: rtpBuf,
 				}
 			default:
-				logger.Printf("unknow rtp pack type, %v", pack.Type)
+				logger.Printf("unknow rtp pack type, %v", pack)
 				continue
 			}
+
 			if pack == nil {
 				logger.Printf("session tcp got nil rtp pack")
 				continue
 			}
+
 			session.InBytes += rtpLen + 4
 			for _, h := range session.RTPHandles {
 				h(pack)
@@ -301,6 +306,7 @@ func (session *Session) Start() {
 	}
 }
 
+// CheckAuth 检查认证
 func CheckAuth(authLine string, method string, sessionNonce string) error {
 	realmRex := regexp.MustCompile(`realm="(.*?)"`)
 	nonceRex := regexp.MustCompile(`nonce="(.*?)"`)
@@ -363,6 +369,7 @@ func CheckAuth(authLine string, method string, sessionNonce string) error {
 	return nil
 }
 
+// handleRequest 请求处理
 func (session *Session) handleRequest(req *Request) {
 	//if session.Timeout > 0 {
 	//	session.Conn.SetDeadline(time.Now().Add(time.Duration(session.Timeout) * time.Second))
@@ -701,6 +708,7 @@ func (session *Session) handleRequest(req *Request) {
 	}
 }
 
+//  SendRTP 发送 RTP
 func (session *Session) SendRTP(pack *RTPPack) (err error) {
 	if pack == nil {
 		err = fmt.Errorf("player send rtp got nil pack")

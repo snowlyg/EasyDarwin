@@ -2,8 +2,8 @@ package routers
 
 import (
 	"fmt"
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"log"
 	"net/http"
 	"runtime"
@@ -13,9 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/snowlyg/EasyDarwin/extend/sessions"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/rtsp"
-	"github.com/snowlyg/EasyDarwin/sessions"
 )
 
 /**

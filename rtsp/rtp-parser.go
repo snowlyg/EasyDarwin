@@ -22,6 +22,7 @@ type RTPInfo struct {
 	PayloadOffset  int
 }
 
+// ParseRTP 解析 RTP
 func ParseRTP(rtpBytes []byte) *RTPInfo {
 	if len(rtpBytes) < RTP_FIXED_HEADER_LENGTH {
 		return nil

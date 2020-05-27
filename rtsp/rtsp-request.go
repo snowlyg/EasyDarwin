@@ -47,6 +47,7 @@ type Request struct {
 	Body    string
 }
 
+// NewRequest 新建请求
 func NewRequest(content string) *Request {
 	lines := strings.Split(strings.TrimSpace(content), "\r\n")
 	if len(lines) == 0 {
@@ -79,6 +80,7 @@ func NewRequest(content string) *Request {
 	}
 }
 
+// String 请求字符串化
 func (r *Request) String() string {
 	str := fmt.Sprintf("%s %s %s\r\n", r.Method, r.URL, r.Version)
 	for key, value := range r.Header {
@@ -89,6 +91,7 @@ func (r *Request) String() string {
 	return str
 }
 
+// GetContentLength 请求内容长度
 func (r *Request) GetContentLength() int {
 	v, err := strconv.ParseInt(r.Header["Content-Length"], 10, 64)
 	if err != nil {

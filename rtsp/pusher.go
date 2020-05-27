@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 )
 
 type Pusher struct {
@@ -153,6 +153,7 @@ func (pusher *Pusher) Source() string {
 	return pusher.RTSPClient.URL
 }
 
+// NewClientPusher 新建推流器客户端
 func NewClientPusher(client *RTSPClient) (pusher *Pusher) {
 	pusher = &Pusher{
 		RTSPClient:     client,
@@ -175,6 +176,7 @@ func NewClientPusher(client *RTSPClient) (pusher *Pusher) {
 	return
 }
 
+// NewPusher 新建推流器
 func NewPusher(session *Session) (pusher *Pusher) {
 	pusher = &Pusher{
 		Session:        session,
@@ -190,6 +192,7 @@ func NewPusher(session *Session) (pusher *Pusher) {
 	return
 }
 
+// bindSession 绑定 Session
 func (pusher *Pusher) bindSession(session *Session) {
 	pusher.Session = session
 	session.RTPHandles = append(session.RTPHandles, func(pack *RTPPack) {
@@ -214,6 +217,7 @@ func (pusher *Pusher) bindSession(session *Session) {
 	})
 }
 
+// RebindSession 重置 Session
 func (pusher *Pusher) RebindSession(session *Session) bool {
 	if pusher.RTSPClient != nil {
 		pusher.Logger().Printf("call RebindSession[%s] to a Client-Pusher. got false", session.ID)
@@ -232,6 +236,7 @@ func (pusher *Pusher) RebindSession(session *Session) bool {
 	return true
 }
 
+// RebindSession 重置客户端
 func (pusher *Pusher) RebindClient(client *RTSPClient) bool {
 	if pusher.Session != nil {
 		pusher.Logger().Printf("call RebindClient[%s] to a Session-Pusher. got false", client.ID)
@@ -245,6 +250,7 @@ func (pusher *Pusher) RebindClient(client *RTSPClient) bool {
 	return true
 }
 
+// QueueRTP RTP队列
 func (pusher *Pusher) QueueRTP(pack *RTPPack) *Pusher {
 	pusher.cond.L.Lock()
 	pusher.queue = append(pusher.queue, pack)
@@ -253,6 +259,7 @@ func (pusher *Pusher) QueueRTP(pack *RTPPack) *Pusher {
 	return pusher
 }
 
+// Start 启动推流器
 func (pusher *Pusher) Start() {
 	logger := pusher.Logger()
 	for !pusher.Stoped() {
@@ -285,6 +292,7 @@ func (pusher *Pusher) Start() {
 	}
 }
 
+// Stop 停止推流器
 func (pusher *Pusher) Stop() {
 	if pusher.Session != nil {
 		pusher.Session.Stop()
@@ -293,6 +301,7 @@ func (pusher *Pusher) Stop() {
 	pusher.RTSPClient.Stop()
 }
 
+// BroadcastRTP 广播 RTP
 func (pusher *Pusher) BroadcastRTP(pack *RTPPack) *Pusher {
 	for _, player := range pusher.GetPlayers() {
 		player.QueueRTP(pack)
@@ -301,6 +310,7 @@ func (pusher *Pusher) BroadcastRTP(pack *RTPPack) *Pusher {
 	return pusher
 }
 
+// GetPlayers 获取播放者
 func (pusher *Pusher) GetPlayers() (players map[string]*Player) {
 	players = make(map[string]*Player)
 	pusher.playersLock.RLock()
@@ -311,6 +321,7 @@ func (pusher *Pusher) GetPlayers() (players map[string]*Player) {
 	return
 }
 
+// HasPlayer 是否在播放
 func (pusher *Pusher) HasPlayer(player *Player) bool {
 	pusher.playersLock.Lock()
 	_, ok := pusher.players[player.ID]
@@ -318,6 +329,7 @@ func (pusher *Pusher) HasPlayer(player *Player) bool {
 	return ok
 }
 
+// AddPlayer 添加播放者
 func (pusher *Pusher) AddPlayer(player *Player) *Pusher {
 	logger := pusher.Logger()
 	if pusher.gopCacheEnable {
@@ -339,6 +351,7 @@ func (pusher *Pusher) AddPlayer(player *Player) *Pusher {
 	return pusher
 }
 
+// RemovePlayer 移除播放者
 func (pusher *Pusher) RemovePlayer(player *Player) *Pusher {
 	logger := pusher.Logger()
 	pusher.playersLock.Lock()
@@ -352,6 +365,7 @@ func (pusher *Pusher) RemovePlayer(player *Player) *Pusher {
 	return pusher
 }
 
+// ClearPlayer 清除播放者
 func (pusher *Pusher) ClearPlayer() {
 	// copy a new map to avoid deadlock
 	players := make(map[string]*Player)
@@ -369,6 +383,7 @@ func (pusher *Pusher) ClearPlayer() {
 	}()
 }
 
+// shouldSequenceStart
 func (pusher *Pusher) shouldSequenceStart(rtp *RTPInfo) bool {
 	if strings.EqualFold(pusher.VCodec(), "h264") {
 		var realNALU uint8

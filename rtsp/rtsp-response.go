@@ -13,6 +13,7 @@ type Response struct {
 	Body       string
 }
 
+// NewResponse 新建响应
 func NewResponse(statusCode int, status, cSeq, sid, body string) *Response {
 	res := &Response{
 		Version:    RTSP_VERSION,
@@ -30,6 +31,7 @@ func NewResponse(statusCode int, status, cSeq, sid, body string) *Response {
 	return res
 }
 
+//  String 响应
 func (r *Response) String() string {
 	str := fmt.Sprintf("%s %d %s\r\n", r.Version, r.StatusCode, r.Status)
 	for key, value := range r.Header {
@@ -40,6 +42,7 @@ func (r *Response) String() string {
 	return str
 }
 
+//  SetBody 设置主体内容
 func (r *Response) SetBody(body string) {
 	len := len(body)
 	r.Body = body

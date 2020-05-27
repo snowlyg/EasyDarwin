@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
 
 	figure "github.com/common-nighthawk/go-figure"
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/kardianos/service"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/routers"
 	"github.com/snowlyg/EasyDarwin/rtsp"
-	"github.com/snowlyg/EasyDarwin/service"
 )
 
 var (
@@ -31,6 +31,7 @@ type program struct {
 	rtspServer *rtsp.Server
 }
 
+// StopHTTP 停止 http
 func (p *program) StopHTTP() (err error) {
 	if p.httpServer == nil {
 		err = fmt.Errorf("HTTP Server Not Found")
@@ -44,13 +45,13 @@ func (p *program) StopHTTP() (err error) {
 	return
 }
 
+// StartHTTP 启动 http
 func (p *program) StartHTTP() (err error) {
 	p.httpServer = &http.Server{
 		Addr:              fmt.Sprintf(":%d", p.httpPort),
 		Handler:           routers.Router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	//link := fmt.Sprintf("http://%s:%d", "0.0.0.0", p.httpPort)
 	link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.httpPort)
 	log.Println("http server start -->", link)
 	go func() {
@@ -62,6 +63,7 @@ func (p *program) StartHTTP() (err error) {
 	return
 }
 
+// StartRTSP 启动 rtsp
 func (p *program) StartRTSP() (err error) {
 	if p.rtspServer == nil {
 		err = fmt.Errorf("RTSP Server Not Found")
@@ -72,7 +74,6 @@ func (p *program) StartRTSP() (err error) {
 		sport = fmt.Sprintf(":%d", p.rtspPort)
 	}
 	link := fmt.Sprintf("rtsp://%s%s", utils.LocalIP(), sport)
-	//link := fmt.Sprintf("rtsp://%s%s", "0.0.0.0", sport)
 	log.Println("rtsp server start -->", link)
 	go func() {
 		if err := p.rtspServer.Start(); err != nil {
@@ -83,6 +84,7 @@ func (p *program) StartRTSP() (err error) {
 	return
 }
 
+// StopRTSP 停止 rtsp
 func (p *program) StopRTSP() (err error) {
 	if p.rtspServer == nil {
 		err = fmt.Errorf("RTSP Server Not Found")
@@ -92,6 +94,7 @@ func (p *program) StopRTSP() (err error) {
 	return
 }
 
+// Start 启动服务
 func (p *program) Start(s service.Service) (err error) {
 
 	log.Println("********** START **********")
@@ -103,10 +106,12 @@ func (p *program) Start(s service.Service) (err error) {
 		err = fmt.Errorf("RTSP port[%d] In Use", p.rtspPort)
 		return
 	}
+	// 初始化数据库和模型
 	err = models.Init()
 	if err != nil {
 		return
 	}
+	// 初始化路由
 	err = routers.Init()
 	if err != nil {
 		return
@@ -123,6 +128,7 @@ func (p *program) Start(s service.Service) (err error) {
 		for range routers.API.RestartChan {
 			_ = p.StopHTTP()
 			_ = p.StopRTSP()
+			// 重载配置
 			utils.ReloadConf()
 			_ = p.StartRTSP()
 			_ = p.StartHTTP()
@@ -199,11 +205,12 @@ func (p *program) Start(s service.Service) (err error) {
 	return
 }
 
+// Stop 停止服务
 func (p *program) Stop(s service.Service) (err error) {
 	defer log.Println("********** STOP **********")
 	defer utils.CloseLogWriter()
-	p.StopHTTP()
-	p.StopRTSP()
+	_ = p.StopHTTP()
+	_ = p.StopRTSP()
 	models.Close()
 	return
 }

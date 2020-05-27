@@ -2,14 +2,14 @@ package routers
 
 import (
 	"fmt"
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/db"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
 	"github.com/snowlyg/EasyDarwin/models"
 	"log"
 	"strings"
 	//"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/snowlyg/EasyDarwin/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"github.com/snowlyg/EasyDarwin/rtsp"
 )
 
