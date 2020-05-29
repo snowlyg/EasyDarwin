@@ -199,7 +199,7 @@ func (p *program) Start(s service.Service) (err error) {
 				//streams = streams[0:i]
 				//streams = append(streams[:i], streams[i+1:]...)
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 	}()
 	return
