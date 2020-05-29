@@ -1,17 +1,21 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	figure "github.com/common-nighthawk/go-figure"
+	"github.com/kardianos/service"
 	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/routers"
-	"github.com/snowlyg/EasyDarwin/rtsp"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -20,7 +24,140 @@ var (
 )
 var Version = "v0.0.0"
 
-func newProgram(sargs []string) (*rtsp.Program, error) {
+type Args struct {
+	Version      bool
+	ProtocolsStr string
+	RtspPort     int
+	RtpPort      int
+	RtcpPort     int
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	PublishUser  string
+	PublishPass  string
+	ReadUser     string
+	ReadPass     string
+	PreScript    string
+	PostScript   string
+}
+
+type TrackFlow int
+
+const (
+	TRACK_FLOW_RTP TrackFlow = iota
+	TRACK_FLOW_RTCP
+)
+
+type Track struct {
+	RtpPort  int
+	RtcpPort int
+}
+
+type StreamProtocol int
+
+const (
+	STREAM_PROTOCOL_UDP StreamProtocol = iota
+	STREAM_PROTOCOL_TCP
+)
+
+func (s StreamProtocol) String() string {
+	if s == STREAM_PROTOCOL_UDP {
+		return "udp"
+	}
+	return "tcp"
+}
+
+type Program struct {
+	Protocols  map[StreamProtocol]struct{}
+	Args       Args
+	HttpPort   int
+	HttpServer *http.Server
+	Tcpl       *ServerTcpListener
+	UdplRtp    *ServerUdpListener
+	UdplRtcp   *ServerUdpListener
+}
+
+// StopHTTP 停止 http
+func (p *Program) StopHTTP() (err error) {
+	if p.HttpServer == nil {
+		err = fmt.Errorf("HTTP Server Not Found")
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err = p.HttpServer.Shutdown(ctx); err != nil {
+		return
+	}
+	return
+}
+
+// StartHTTP 启动 http
+func (p *Program) StartHTTP() (err error) {
+	p.HttpServer = &http.Server{
+		Addr:              fmt.Sprintf(":%d", p.HttpPort),
+		Handler:           routers.Router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.HttpPort)
+	log.Println("http server start -->", link)
+	go func() {
+		if err := p.HttpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Println("start http server error", err)
+		}
+		log.Println("http server end")
+	}()
+	return
+}
+
+func (p *Program) Start(s service.Service) (err error) {
+	log.Println("********** START **********")
+	err = models.Init()
+	if err != nil {
+		return
+	}
+	err = routers.Init()
+	if err != nil {
+		return
+	}
+
+	p.UdplRtp.Run()
+	p.UdplRtcp.Run()
+	p.Tcpl.Run()
+	p.StartHTTP()
+
+	if !utils.Debug {
+		log.Println("log files -->", utils.LogDir())
+		log.SetOutput(utils.GetLogWriter())
+	}
+	go func() {
+		for range routers.API.RestartChan {
+			p.StopHTTP()
+			p.UdplRtp.Close()
+			p.UdplRtcp.Close()
+			p.Tcpl.Close()
+			utils.ReloadConf()
+			p.UdplRtp.Run()
+			p.UdplRtcp.Run()
+			p.Tcpl.Run()
+			p.StartHTTP()
+		}
+	}()
+
+	return
+}
+
+// Stop 停止服务
+func (p *Program) Stop(s service.Service) (err error) {
+	defer log.Println("********** STOP **********")
+	defer utils.CloseLogWriter()
+	p.Tcpl.Close()
+	p.UdplRtp.Close()
+	p.Tcpl.Close()
+	_ = p.StopHTTP()
+	models.Close()
+	return
+}
+
+func newProgram(sargs []string) (*Program, error) {
 	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" + "RTSP server."
 
 	argVersion := kingpin.Flag("version", "print version").Bool()
@@ -39,7 +176,7 @@ func newProgram(sargs []string) (*rtsp.Program, error) {
 
 	kingpin.MustParse(kingpin.CommandLine.Parse(sargs))
 
-	args := rtsp.Args{
+	args := Args{
 		Version:      *argVersion,
 		ProtocolsStr: *argProtocolsStr,
 		RtspPort:     *argRtspPort,
@@ -60,14 +197,14 @@ func newProgram(sargs []string) (*rtsp.Program, error) {
 		os.Exit(0)
 	}
 
-	protocols := make(map[rtsp.StreamProtocol]struct{})
+	protocols := make(map[StreamProtocol]struct{})
 	for _, proto := range strings.Split(args.ProtocolsStr, ",") {
 		switch proto {
 		case "udp":
-			protocols[rtsp.STREAM_PROTOCOL_UDP] = struct{}{}
+			protocols[STREAM_PROTOCOL_UDP] = struct{}{}
 
 		case "tcp":
-			protocols[rtsp.STREAM_PROTOCOL_TCP] = struct{}{}
+			protocols[STREAM_PROTOCOL_TCP] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)
@@ -111,7 +248,7 @@ func newProgram(sargs []string) (*rtsp.Program, error) {
 
 	log.Printf("rtsp-simple-server %s", Version)
 	httpPort := utils.Conf().Section("http").Key("port").MustInt(10008)
-	p := &rtsp.Program{
+	p := &Program{
 		HttpPort:  httpPort,
 		Args:      args,
 		Protocols: protocols,
@@ -119,26 +256,20 @@ func newProgram(sargs []string) (*rtsp.Program, error) {
 
 	var err error
 
-	p.UdplRtp, err = rtsp.NewServerUdpListener(p, args.RtpPort, rtsp.TRACK_FLOW_RTP)
+	p.UdplRtp, err = NewServerUdpListener(p, args.RtpPort, TRACK_FLOW_RTP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.UdplRtcp, err = rtsp.NewServerUdpListener(p, args.RtcpPort, rtsp.TRACK_FLOW_RTCP)
+	p.UdplRtcp, err = NewServerUdpListener(p, args.RtcpPort, TRACK_FLOW_RTCP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.Tcpl, err = rtsp.NewServerTcpListener(p)
+	p.Tcpl, err = NewServerTcpListener(p)
 	if err != nil {
 		return nil, err
 	}
-
-	go p.UdplRtp.Run()
-	go p.UdplRtcp.Run()
-	go p.Tcpl.Run()
-	go p.StartHTTP()
-
 	return p, nil
 }
 
@@ -157,13 +288,27 @@ func main() {
 	routers.BuildVersion = fmt.Sprintf("%s.%s", routers.BuildVersion, gitCommitCode)
 	routers.BuildDateTime = buildDateTime
 
-	_, err := newProgram(os.Args[1:])
+	p, err := newProgram(os.Args[1:])
 	if err != nil {
 		log.Fatal("ERR: ", err)
 	}
+	sec := utils.Conf().Section("service")
+	svcConfig := &service.Config{
+		Name:        sec.Key("name").MustString("EasyDarwin_Service"),
+		DisplayName: sec.Key("display_name").MustString("EasyDarwin_Service"),
+		Description: sec.Key("description").MustString("EasyDarwin_Service"),
+	}
+	s, err := service.New(p, svcConfig)
+	if err != nil {
+		log.Println(err)
+		utils.PauseExit()
+	}
 
-	infty := make(chan struct{})
-	<-infty
+	figure.NewFigure("EasyDarwin", "", false).Print()
+	if err = s.Run(); err != nil {
+		log.Println(err)
+		utils.PauseExit()
+	}
 
 	figure.NewFigure("EasyDarwin", "", false).Print()
 }

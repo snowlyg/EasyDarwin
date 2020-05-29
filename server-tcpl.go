@@ -1,4 +1,4 @@
-package rtsp
+package main
 
 import (
 	"log"
@@ -57,7 +57,7 @@ func (l *ServerTcpListener) Run() {
 		l.Mutex.Lock()
 		defer l.Mutex.Unlock()
 		for c := range l.Clients {
-			c.close()
+			c.Close()
 			doneChans = append(doneChans, c.done)
 		}
 	}()
@@ -68,7 +68,7 @@ func (l *ServerTcpListener) Run() {
 	close(l.Done)
 }
 
-func (l *ServerTcpListener) close() {
+func (l *ServerTcpListener) Close() {
 	l.Nconn.Close()
 	<-l.Done
 }

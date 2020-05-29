@@ -1,4 +1,4 @@
-package rtsp
+package main
 
 import (
 	"log"
@@ -105,7 +105,7 @@ func (l *ServerUdpListener) Run() {
 	close(l.Done)
 }
 
-func (l *ServerUdpListener) close() {
+func (l *ServerUdpListener) Close() {
 	l.Nconn.Close()
 	<-l.Done
 }

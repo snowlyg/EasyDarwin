@@ -1,4 +1,4 @@
-package rtsp
+package main
 
 import (
 	"errors"
@@ -98,7 +98,7 @@ func NewServerClient(p *Program, nconn net.Conn) *serverClient {
 	return c
 }
 
-func (c *serverClient) close() error {
+func (c *serverClient) Close() error {
 	// already deleted
 	if _, ok := c.p.Tcpl.Clients[c]; !ok {
 		return nil
@@ -116,7 +116,7 @@ func (c *serverClient) close() error {
 			// close all other connections that share the same path
 			for oc := range c.p.Tcpl.Clients {
 				if oc.path == c.path {
-					oc.close()
+					oc.Close()
 				}
 			}
 		}
@@ -167,7 +167,7 @@ func (c *serverClient) Run() {
 	func() {
 		c.p.Tcpl.Mutex.Lock()
 		defer c.p.Tcpl.Mutex.Unlock()
-		c.close()
+		c.Close()
 	}()
 
 	c.log("disconnected")
