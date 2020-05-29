@@ -2,6 +2,8 @@ package routers
 
 import (
 	"bytes"
+	"github.com/gin-gonic/gin"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"log"
 	"math"
 	"os"
@@ -11,9 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 )
 
 /**
