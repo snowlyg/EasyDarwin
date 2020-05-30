@@ -117,9 +117,9 @@ func (p *Program) Start(s service.Service) (err error) {
 		return
 	}
 
-	p.UdplRtp.Start()
-	p.UdplRtcp.Start()
-	p.Tcpl.Start()
+	go p.UdplRtp.Start()
+	go p.UdplRtcp.Start()
+	go p.Tcpl.Start()
 
 	err = models.Init()
 	if err != nil {
@@ -160,9 +160,9 @@ func (p *Program) Start(s service.Service) (err error) {
 			}
 
 			utils.ReloadConf()
-			p.UdplRtp.Start()
-			p.UdplRtcp.Start()
-			p.Tcpl.Start()
+			go p.UdplRtp.Start()
+			go p.UdplRtcp.Start()
+			go p.Tcpl.Start()
 
 			err = p.StartHTTP()
 			if err != nil {
