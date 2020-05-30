@@ -150,14 +150,9 @@ func (p *Program) StopRTSP() (err error) {
 func (p *Program) Stop(s service.Service) (err error) {
 	defer log.Println("********** STOP **********")
 	defer utils.CloseLogWriter()
-	err = p.StopRTSP()
-	if err != nil {
-		return
-	}
-	err = p.StopHTTP()
-	if err != nil {
-		return
-	}
+	_ = p.StopRTSP()
+	_ = p.StopHTTP()
+
 	models.Close()
 	return
 }
@@ -261,6 +256,7 @@ func newProgram(sargs []string) (*Program, error) {
 	rtspServer.UdplRtp, err = rtsp.NewServerUdpListener(rtspServer, args.RtpPort, rtsp.TRACK_FLOW_RTP)
 	if err != nil {
 		return nil, err
+
 	}
 
 	rtspServer.UdplRtcp, err = rtsp.NewServerUdpListener(rtspServer, args.RtcpPort, rtsp.TRACK_FLOW_RTCP)
