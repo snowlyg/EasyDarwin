@@ -1,11 +1,14 @@
 package routers
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
-	"github.com/snowlyg/EasyDarwin/models"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/db"
+	"github.com/snowlyg/GoEasyFfmpeg/models"
 	"log"
+	//"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
+	"github.com/snowlyg/GoEasyFfmpeg/rtsp"
 )
 
 /**
@@ -59,66 +62,31 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 	pushers := make([]interface{}, 0)
 	for _, stream := range streams {
-		var url string
-		var path string
-		var inBytes int
-		var outBytes int
 		var startAt string
-		var onlines int
 		statusText := "已停止"
-		streamID := ""
-
-		//rIPushers := rtsp.Instance.GetPushers()
-		//for _, pusher := range rIPushers {
-		//	port := pusher.Server().TCPPort
-		//
-		//	rtspURl := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
-		//	if port == 554 {
-		//		rtspURl = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
-		//	}
-		//
-		//	if form.Q != "" && !strings.Contains(strings.ToLower(rtspURl), strings.ToLower(form.Q)) {
-		//		continue
-		//	}
-		//
-		//	if stream.URL == pusher.RTSPClient.URL {
-		//		if stream.Status {
-		//			if !pusher.Stoped() {
-		//				statusText = "已启动"
-		//			}
-		//		}
-		//		streamID = stream.StreamId
-		//		startAtTime := utils.DateTime(pusher.StartAt())
-		//		startAt = startAtTime.String()
-		//		url, path, inBytes, outBytes, onlines = rtspURl, pusher.Path(), pusher.InBytes(), pusher.OutBytes(), len(pusher.GetPlayers())
-		//	}
-		//}
-
-		transType := "TCP"
-		if stream.TransType == 0 {
-			transType = "TCP"
-		} else if stream.TransType == 1 {
-			transType = "UDP"
+		rIPushers := rtsp.Instance.GetPushers()
+		for _, v := range rIPushers {
+			if stream.ID == v.ID {
+				if stream.Status {
+					if !v.Stoped {
+						statusText = "已启动"
+					}
+				}
+				startAt = stream.UpdatedAt.String()
+			} else {
+				startAt = "-"
+			}
 		}
 
 		pushers = append(pushers, map[string]interface{}{
-			"id":                stream.ID,
-			"streamId":          streamID,
-			"url":               url,
-			"path":              path,
-			"source":            stream.URL,
-			"transType":         transType,
-			"transRtpType":      stream.TransRtpType,
-			"inBytes":           inBytes,
-			"outBytes":          outBytes,
-			"startAt":           startAt,
-			"onlines":           onlines,
-			"idleTimeout":       stream.IdleTimeout,
-			"heartbeatInterval": stream.HeartbeatInterval,
-			"customPath":        stream.CustomPath,
-			"status":            statusText,
+			"id":        stream.ID,
+			"url":       utils.GetOutPutUrl(stream.RoomName, stream.TransType), //  播放地址
+			"source":    stream.URL,                                            // 源地址
+			"transType": stream.TransType,
+			"startAt":   startAt,
+			"roomName":  stream.RoomName,
+			"status":    statusText,
 		})
-
 	}
 
 	pr := utils.NewPageResult(pushers)
@@ -153,30 +121,25 @@ func (h *APIHandler) Players(c *gin.Context) {
 	if err := c.Bind(form); err != nil {
 		return
 	}
-	//players := make([]*rtsp.Player, 0)
-	//for _, pusher := range rtsp.Instance.GetPushers() {
-	//	for _, player := range pusher.GetPlayers() {
-	//		players = append(players, player)
-	//	}
-	//}
+	players := make([]*rtsp.Player, 0)
+	for _, pusher := range rtsp.Instance.GetPushers() {
+		for _, player := range pusher.GetPlayers() {
+			players = append(players, player)
+		}
+	}
 	//hostname := utils.GetRequestHostname(c.Request)
 	_players := make([]interface{}, 0)
-	//for i := 0; i < len(players); i++ {
-	//	player := players[i]
-	//	port := player.Server.TCPPort
-	//	rtsp := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, player.Path)
-	//	if port == 554 {
-	//		rtsp = fmt.Sprintf("rtsp://%s%s", hostname, player.Path)
-	//	}
-	//	_players = append(_players, map[string]interface{}{
-	//		"id":        player.ID,
-	//		"path":      rtsp,
-	//		"transType": player.TransType.String(),
-	//		"inBytes":   player.InBytes,
-	//		"outBytes":  player.OutBytes,
-	//		"startAt":   utils.DateTime(player.StartAt),
-	//	})
-	//}
+	for i := 0; i < len(players); i++ {
+		//player := players[i]
+		_players = append(_players, map[string]interface{}{
+			"id": "player.ID",
+
+			"transType": "player.TransType.String()",
+			"inBytes":   "player.InBytes",
+			"outBytes":  "player.OutBytes",
+			"startAt":   "utils.DateTime(player.StartAt)",
+		})
+	}
 	pr := utils.NewPageResult(_players)
 	if form.Sort != "" {
 		pr.Sort(form.Sort, form.Order)

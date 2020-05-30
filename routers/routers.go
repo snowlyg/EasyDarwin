@@ -2,18 +2,20 @@ package routers
 
 import (
 	"fmt"
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-contrib/static"
-	"github.com/gin-gonic/gin"
-	"github.com/penggy/cors"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
-	"github.com/snowlyg/EasyDarwin/extend/sessions"
-	validator "gopkg.in/go-playground/validator.v8"
 	"log"
 	"mime"
 	"net/http"
 	"path/filepath"
+
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/db"
+
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-contrib/static"
+	"github.com/gin-gonic/gin"
+	"github.com/penggy/cors"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/sessions"
+	validator "gopkg.in/go-playground/validator.v8"
 )
 
 /**

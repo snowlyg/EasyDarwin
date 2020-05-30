@@ -2,8 +2,8 @@ package routers
 
 import (
 	"fmt"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/db"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
 	"log"
 	"net/http"
 	"runtime"
@@ -13,8 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"github.com/snowlyg/EasyDarwin/extend/sessions"
-	"github.com/snowlyg/EasyDarwin/models"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/sessions"
+	"github.com/snowlyg/GoEasyFfmpeg/models"
+	"github.com/snowlyg/GoEasyFfmpeg/rtsp"
 )
 
 /**
@@ -49,12 +50,12 @@ func init() {
 				now := utils.DateTime(time.Now())
 				memData = append(memData, PercentData{Time: now, Used: mem.UsedPercent / 100})
 				cpuData = append(cpuData, PercentData{Time: now, Used: cpu[0] / 100})
-				//pusherData = append(pusherData, CountData{Time: now, Total: uint(rtsp.Instance.GetPusherSize())})
-				//playerCnt := 0
-				//for _, pusher := range rtsp.Instance.GetPushers() {
-				//	playerCnt += len(pusher.GetPlayers())
-				//}
-				//playerData = append(playerData, CountData{Time: now, Total: uint(playerCnt)})
+				pusherData = append(pusherData, CountData{Time: now, Total: uint(rtsp.Instance.GetPusherSize())})
+				playerCnt := 0
+				for _, pusher := range rtsp.Instance.GetPushers() {
+					playerCnt += len(pusher.GetPlayers())
+				}
+				playerData = append(playerData, CountData{Time: now, Total: uint(playerCnt)})
 
 				if len(memData) > timeSize {
 					memData = memData[len(memData)-timeSize:]

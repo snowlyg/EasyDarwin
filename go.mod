@@ -31,6 +31,7 @@ require (
 	github.com/penggy/gobuild v0.7.2-0.20190318034240-e495bc939062 // indirect
 	github.com/shirou/gopsutil v2.20.4+incompatible
 	github.com/smartystreets/goconvey v1.6.4 // indirect
+	github.com/snowlyg/GoEasyFfmpeg v0.0.0-20200529100356-a26b1d306e5e
 	github.com/tebeka/strftime v0.1.4 // indirect
 	github.com/teris-io/shortid v0.0.0-20171029131806-771a37caa5cf
 	golang.org/x/sys v0.0.0-20200523222454-059865788121 // indirect

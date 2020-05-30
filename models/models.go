@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/db"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
 )
 
 func Init() (err error) {

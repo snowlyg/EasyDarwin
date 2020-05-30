@@ -118,11 +118,16 @@ func (p *Program) Start(s service.Service) (err error) {
 	if err != nil {
 		return
 	}
-
+	err = p.StartHTTP()
+	if err != nil {
+		return
+	}
+	log.Println("log files -->", utils.LogDir())
 	p.UdplRtp.Run()
 	p.UdplRtcp.Run()
 	p.Tcpl.Run()
-	p.StartHTTP()
+
+
 
 	if !utils.Debug {
 		log.Println("log files -->", utils.LogDir())
@@ -130,15 +135,15 @@ func (p *Program) Start(s service.Service) (err error) {
 	}
 	go func() {
 		for range routers.API.RestartChan {
-			p.StopHTTP()
 			p.UdplRtp.Close()
 			p.UdplRtcp.Close()
 			p.Tcpl.Close()
+			p.StopHTTP()
 			utils.ReloadConf()
+			p.StartHTTP()
 			p.UdplRtp.Run()
 			p.UdplRtcp.Run()
 			p.Tcpl.Run()
-			p.StartHTTP()
 		}
 	}()
 
@@ -163,8 +168,8 @@ func newProgram(sargs []string) (*Program, error) {
 	argVersion := kingpin.Flag("version", "print version").Bool()
 	argProtocolsStr := kingpin.Flag("protocols", "supported protocols").Default("udp,tcp").String()
 	argRtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
-	argRtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
-	argRtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
+	argRtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8110").Int()
+	argRtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8111").Int()
 	argReadTimeout := kingpin.Flag("read-timeout", "timeout for read operations").Default("5s").Duration()
 	argWriteTimeout := kingpin.Flag("write-timeout", "timeout for write operations").Default("5s").Duration()
 	argPublishUser := kingpin.Flag("publish-user", "optional username required to publish").Default("").String()
@@ -270,6 +275,7 @@ func newProgram(sargs []string) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return p, nil
 }
 

@@ -3,51 +3,29 @@
         <div :class="['form-group', { 'has-error': errors.has('url')}]">
             <label for="input-url" class="col-sm-3 control-label"><span class="text-red">*</span> RTSP地址</label>
             <div class="col-sm-8">
-                <input type="text"  id="input-url" class="form-control" name="url" data-vv-as="RTSP地址" v-validate="'required'" v-model.trim="form.source">
+                <input type="text"  id="input-url" class="form-control" name="source" data-vv-as="RTSP地址" v-validate="'required'" v-model.trim="form.source">
                 <input type="hidden"  id="input-id" class="form-control" name="id" data-vv-as="RTSP地址" v-validate="'required'" v-model.trim="form.id">
                 <span class="help-block">{{errors.first('url')}}</span>
             </div>
-        </div>                   
-        <div :class="['form-group', { 'has-error': errors.has('customPath')}]">
-            <label for="input-custom-path" class="col-sm-3 control-label">自定义路径</label>
+        </div>
+        <div :class="['form-group', { 'has-error': errors.has('roomName')}]">
+            <label for="input-room-name" class="col-sm-3 control-label">频道房间名称</label>
             <div class="col-sm-8">
-                <input type="text" id="input-custom-path" class="form-control" name="customPath" data-vv-as="自定义路径" v-model.trim="form.customPath" placeholder="/your/custom/path">
-                <span class="help-block">{{errors.first('customPath')}}</span>
+                <input type="text" id="input-room-name" class="form-control" name="roomName" data-vv-as="频道房间名称" v-model.trim="form.roomName" placeholder="/your/room/name">
+                <span class="help-block">{{errors.first('roomName')}}</span>
             </div>
-        </div> 
+        </div>
         <div class="form-group">
-            <label for="input-transport" class="col-sm-3 control-label">传输协议</label>
+            <label for="input-transport" class="col-sm-3 control-label">输出协议</label>
             <div class="col-sm-8">
                 <el-radio-group id="input-transport" v-model.trim="form.transType" size="mini">
-                    <el-radio-button label="TCP"></el-radio-button>
-                    <el-radio-button label="UDP"></el-radio-button>
+                    <el-radio-button label="RTSP"></el-radio-button>
+                    <el-radio-button label="HLS"></el-radio-button>
+                    <el-radio-button label="FLV"></el-radio-button>
                     <!-- <el-radio-button label="Multicast"></el-radio-button> -->
                 </el-radio-group>
             </div>
         </div>
-        <div class="form-group">
-            <label for="input-transport" class="col-sm-3 control-label">RTP协议</label>
-            <div class="col-sm-8">
-                <el-radio-group id="input-rtp_transport" v-model.trim="form.transRtpType" size="mini">
-                    <el-radio-button label="MP2T"></el-radio-button>
-                    <el-radio-button label="RTP"></el-radio-button>
-                </el-radio-group>
-            </div>
-        </div>
-        <div :class="['form-group', { 'has-error': errors.has('idleTimeout')}]">
-            <label for="input-idle-timeout" class="col-sm-3 control-label">空闲超时(秒)</label>
-            <div class="col-sm-8">
-                <input type="text" id="input-idle-timeout" class="form-control" name="idleTimeout" data-vv-as="空闲超时" v-validate="'numeric'" v-model.trim="form.idleTimeout" placeholder="默认使用系统配置">
-                <span class="help-block">{{errors.first('idleTimeout')}}</span>
-            </div>
-        </div>   
-        <div :class="['form-group', { 'has-error': errors.has('heartbeatInterval')}]">
-            <label for="input-heartbeat-interval" class="col-sm-3 control-label">心跳间隔(秒)</label>
-            <div class="col-sm-8">
-                <input type="text" id="input-heartbeat-interval" class="form-control" name="heartbeatInterval" data-vv-as="心跳间隔" v-validate="'numeric'" v-model.trim="form.heartbeatInterval" placeholder="默认使用系统配置">
-                <span class="help-block">{{errors.first('heartbeatInterval')}}</span>
-            </div>
-        </div>                         
     </FormDlg>
 </template>
 
@@ -71,11 +49,8 @@ export default {
             return {
                 id: '',
                 source: '',
-                customPath: '',
-                transType: 'TCP',
-                transRtpType: 'RTP',
-                idleTimeout: '',
-                heartbeatInterval: ''
+                roomName: '',
+                transType: 'RTSP',
             }
         },
         onHide() {
@@ -83,7 +58,7 @@ export default {
             this.form = this.defForm();
         },
         onShow() {
-            document.querySelector(`[name=url]`).focus();
+            document.querySelector(`[name=source]`).focus();
         },
         async onSubmit() {
             var ok = await this.$validator.validateAll();
