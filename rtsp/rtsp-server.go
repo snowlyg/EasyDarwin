@@ -2,7 +2,7 @@ package rtsp
 
 import (
 	"fmt"
-	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"log"
 	"os"
 	"os/exec"
@@ -13,15 +13,60 @@ import (
 	"time"
 )
 
+type TrackFlow int
+
+const (
+	TRACK_FLOW_RTP TrackFlow = iota
+	TRACK_FLOW_RTCP
+)
+
+type Track struct {
+	RtpPort  int
+	RtcpPort int
+}
+
+type StreamProtocol int
+
+const (
+	STREAM_PROTOCOL_UDP StreamProtocol = iota
+	STREAM_PROTOCOL_TCP
+)
+
+func (s StreamProtocol) String() string {
+	if s == STREAM_PROTOCOL_UDP {
+		return "udp"
+	}
+	return "tcp"
+}
+
+type Args struct {
+	Version      bool
+	ProtocolsStr string
+	RtspPort     int
+	RtpPort      int
+	RtcpPort     int
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	PublishUser  string
+	PublishPass  string
+	ReadUser     string
+	ReadPass     string
+	PreScript    string
+	PostScript   string
+}
+
 type Server struct {
+	Protocols map[StreamProtocol]struct{}
+	Args      Args
 	SessionLogger
-	//TCPListener    *net.TCPListener
-	//TCPPort        int
 	Stoped         bool
 	pushers        map[string]*Pusher // Path <-> Pusher
 	pushersLock    sync.RWMutex
 	addPusherCh    chan *Pusher
 	removePusherCh chan *Pusher
+	Tcpl           *ServerTcpListener
+	UdplRtp        *ServerUdpListener
+	UdplRtcp       *ServerUdpListener
 }
 
 var Instance *Server = &Server{
@@ -38,6 +83,7 @@ func GetServer() *Server {
 
 // Start 启动
 func (server *Server) Start() (err error) {
+
 	logger := server.logger
 	ffmpeg := utils.Conf().Section("rtsp").Key("ffmpeg_path").MustString("")
 	m3u8DirPath := utils.Conf().Section("rtsp").Key("m3u8_dir_path").MustString("")
@@ -62,8 +108,8 @@ func (server *Server) Start() (err error) {
 
 					paramStr := utils.Conf().Section("rtsp").Key("decoder").MustString("-strict -2 -threads 2 -c:v copy -c:a copy -f rtsp")
 					paramsOfThisPath := strings.Split(paramStr, " ")
-					params := []string{"-i", pusher.Source, pusher.Path}
-					params = append(params[:2], append(paramsOfThisPath, params[2:]...)...)
+					params := []string{"-rtsp_transport ", "tcp", "-i", "\"" + pusher.Source + "\"", pusher.Path}
+					params = append(params[:4], append(paramsOfThisPath, params[4:]...)...)
 
 					cmd := exec.Command(ffmpeg, params...)
 					f, err := os.OpenFile(path.Join(dir, fmt.Sprintf("log.txt")), os.O_RDWR|os.O_CREATE, 0755)
@@ -112,6 +158,9 @@ func (server *Server) Start() (err error) {
 
 	server.Stoped = false
 
+	server.UdplRtp.Run()
+	server.UdplRtcp.Run()
+	server.Tcpl.Run()
 	return
 }
 

@@ -1,4 +1,4 @@
-package main
+package rtsp
 
 import (
 	"errors"
@@ -62,7 +62,7 @@ func (cs clientState) String() string {
 }
 
 type serverClient struct {
-	p               *Program
+	p               *Server
 	conn            *gortsplib.ConnServer
 	state           clientState
 	path            string
@@ -76,7 +76,7 @@ type serverClient struct {
 	done            chan struct{}
 }
 
-func NewServerClient(p *Program, nconn net.Conn) *serverClient {
+func NewServerClient(p *Server, nconn net.Conn) *serverClient {
 	c := &serverClient{
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{

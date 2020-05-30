@@ -1,4 +1,4 @@
-package main
+package rtsp
 
 import (
 	"log"
@@ -12,14 +12,14 @@ type udpWrite struct {
 }
 
 type ServerUdpListener struct {
-	P     *Program
+	P     *Server
 	Nconn *net.UDPConn
 	Flow  TrackFlow
 	Write chan *udpWrite
 	Done  chan struct{}
 }
 
-func NewServerUdpListener(p *Program, port int, flow TrackFlow) (*ServerUdpListener, error) {
+func NewServerUdpListener(p *Server, port int, flow TrackFlow) (*ServerUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})

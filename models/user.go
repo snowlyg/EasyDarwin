@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/jinzhu/gorm"
-	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 )
 
 type User struct {

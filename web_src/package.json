@@ -9,7 +9,7 @@
     "build": "cross-env NODE_ENV=production webpack --progress --hide-modules"
   },
   "keywords": [
-    "GoEasyFfmpeg"
+    "EasyDarwin"
   ],
   "author": "penggy",
   "license": "ISC",
