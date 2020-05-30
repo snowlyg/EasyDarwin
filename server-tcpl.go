@@ -1,4 +1,4 @@
-package rtsp
+package main
 
 import (
 	"log"
@@ -9,7 +9,7 @@ import (
 )
 
 type ServerTcpListener struct {
-	Server     *Server
+	Server     *Program
 	Nconn      *net.TCPListener
 	Mutex      sync.RWMutex
 	Clients    map[*serverClient]struct{}
@@ -17,7 +17,7 @@ type ServerTcpListener struct {
 	Done       chan struct{}
 }
 
-func NewServerTcpListener(p *Server) (*ServerTcpListener, error) {
+func NewServerTcpListener(p *Program) (*ServerTcpListener, error) {
 	nconn, err := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: p.Args.RtspPort,
 	})
@@ -41,7 +41,7 @@ func (l *ServerTcpListener) log(format string, args ...interface{}) {
 	log.Printf("[TCP listener] "+format, args...)
 }
 
-func (l *ServerTcpListener) Run() {
+func (l *ServerTcpListener) Start() {
 	for {
 		nconn, err := l.Nconn.AcceptTCP()
 		if err != nil {
@@ -57,7 +57,7 @@ func (l *ServerTcpListener) Run() {
 		l.Mutex.Lock()
 		defer l.Mutex.Unlock()
 		for c := range l.Clients {
-			c.Close()
+			c.Stop()
 			doneChans = append(doneChans, c.done)
 		}
 	}()
@@ -68,7 +68,7 @@ func (l *ServerTcpListener) Run() {
 	close(l.Done)
 }
 
-func (l *ServerTcpListener) Close() {
+func (l *ServerTcpListener) Stop() {
 	l.Nconn.Close()
 	<-l.Done
 }

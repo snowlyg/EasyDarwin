@@ -1,4 +1,4 @@
-package rtsp
+package main
 
 import (
 	"errors"
@@ -62,7 +62,7 @@ func (cs clientState) String() string {
 }
 
 type serverClient struct {
-	p               *Server
+	p               *Program
 	conn            *gortsplib.ConnServer
 	state           clientState
 	path            string
@@ -76,7 +76,7 @@ type serverClient struct {
 	done            chan struct{}
 }
 
-func NewServerClient(p *Server, nconn net.Conn) *serverClient {
+func NewServerClient(p *Program, nconn net.Conn) *serverClient {
 	c := &serverClient{
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
@@ -93,12 +93,12 @@ func NewServerClient(p *Server, nconn net.Conn) *serverClient {
 	c.p.Tcpl.Clients[c] = struct{}{}
 	c.p.Tcpl.Mutex.Unlock()
 
-	go c.Run()
+	go c.Start()
 
 	return c
 }
 
-func (c *serverClient) Close() error {
+func (c *serverClient) Stop() error {
 	// already deleted
 	if _, ok := c.p.Tcpl.Clients[c]; !ok {
 		return nil
@@ -116,7 +116,7 @@ func (c *serverClient) Close() error {
 			// close all other connections that share the same path
 			for oc := range c.p.Tcpl.Clients {
 				if oc.path == c.path {
-					oc.Close()
+					oc.Stop()
 				}
 			}
 		}
@@ -137,7 +137,7 @@ func (c *serverClient) zone() string {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
 }
 
-func (c *serverClient) Run() {
+func (c *serverClient) Start() {
 	c.log("connected")
 
 	if c.p.Args.PreScript != "" {
@@ -166,7 +166,7 @@ func (c *serverClient) Run() {
 	func() {
 		c.p.Tcpl.Mutex.Lock()
 		defer c.p.Tcpl.Mutex.Unlock()
-		c.Close()
+		c.Stop()
 	}()
 
 	c.log("disconnected")

@@ -1,4 +1,4 @@
-package rtsp
+package main
 
 import (
 	"log"
@@ -12,14 +12,14 @@ type udpWrite struct {
 }
 
 type ServerUdpListener struct {
-	P     *Server
+	P     *Program
 	Nconn *net.UDPConn
 	Flow  TrackFlow
 	Write chan *udpWrite
 	Done  chan struct{}
 }
 
-func NewServerUdpListener(p *Server, port int, flow TrackFlow) (*ServerUdpListener, error) {
+func NewServerUdpListener(p *Program, port int, flow TrackFlow) (*ServerUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -49,7 +49,7 @@ func (l *ServerUdpListener) log(format string, args ...interface{}) {
 	log.Printf("[UDP/"+label+" listener] "+format, args...)
 }
 
-func (l *ServerUdpListener) Run() {
+func (l *ServerUdpListener) Start() {
 	go func() {
 		for w := range l.Write {
 			l.Nconn.SetWriteDeadline(time.Now().Add(l.P.Args.WriteTimeout))
@@ -105,7 +105,7 @@ func (l *ServerUdpListener) Run() {
 	close(l.Done)
 }
 
-func (l *ServerUdpListener) Close() {
+func (l *ServerUdpListener) Stop() {
 	l.Nconn.Close()
 	<-l.Done
 }

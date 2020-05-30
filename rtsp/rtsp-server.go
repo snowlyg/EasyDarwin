@@ -13,60 +13,13 @@ import (
 	"time"
 )
 
-type TrackFlow int
-
-const (
-	TRACK_FLOW_RTP TrackFlow = iota
-	TRACK_FLOW_RTCP
-)
-
-type Track struct {
-	RtpPort  int
-	RtcpPort int
-}
-
-type StreamProtocol int
-
-const (
-	STREAM_PROTOCOL_UDP StreamProtocol = iota
-	STREAM_PROTOCOL_TCP
-)
-
-func (s StreamProtocol) String() string {
-	if s == STREAM_PROTOCOL_UDP {
-		return "udp"
-	}
-	return "tcp"
-}
-
-type Args struct {
-	Version      bool
-	ProtocolsStr string
-	RtspPort     int
-	RtpPort      int
-	RtcpPort     int
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	PublishUser  string
-	PublishPass  string
-	ReadUser     string
-	ReadPass     string
-	PreScript    string
-	PostScript   string
-}
-
 type Server struct {
-	Protocols map[StreamProtocol]struct{}
-	Args      Args
 	SessionLogger
 	Stoped         bool
 	pushers        map[string]*Pusher // Path <-> Pusher
 	pushersLock    sync.RWMutex
 	addPusherCh    chan *Pusher
 	removePusherCh chan *Pusher
-	Tcpl           *ServerTcpListener
-	UdplRtp        *ServerUdpListener
-	UdplRtcp       *ServerUdpListener
 }
 
 var Instance *Server = &Server{
@@ -87,10 +40,6 @@ func (server *Server) Start() (err error) {
 	logger := server.logger
 	ffmpeg := utils.Conf().Section("rtsp").Key("ffmpeg_path").MustString("")
 	m3u8DirPath := utils.Conf().Section("rtsp").Key("m3u8_dir_path").MustString("")
-
-	go server.UdplRtp.Run()
-	go server.UdplRtcp.Run()
-	go server.Tcpl.Run()
 
 	go func() { // 保持到本地
 		pusher2FfmpegMap := make(map[*Pusher]*exec.Cmd)
@@ -170,10 +119,6 @@ func (server *Server) Stop() {
 	server.pushersLock.Lock()
 	server.pushers = make(map[string]*Pusher)
 	server.pushersLock.Unlock()
-
-	server.UdplRtcp.Close()
-	server.UdplRtp.Close()
-	server.Tcpl.Close()
 
 	close(server.addPusherCh)
 	close(server.removePusherCh)
