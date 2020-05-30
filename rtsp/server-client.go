@@ -126,8 +126,7 @@ func (c *serverClient) Close() error {
 
 func (c *serverClient) log(format string, args ...interface{}) {
 	// keep remote address outside format, since it can contain %
-	log.Println("[RTSP client " + c.conn.NetConn().RemoteAddr().String() + "] " +
-		fmt.Sprintf(format, args...))
+	log.Println("[RTSP client " + c.conn.NetConn().RemoteAddr().String() + "] " + fmt.Sprintf(format, args...))
 }
 
 func (c *serverClient) ip() net.IP {

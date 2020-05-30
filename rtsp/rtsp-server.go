@@ -161,7 +161,6 @@ func (server *Server) Start() (err error) {
 	}()
 
 	server.Stoped = false
-
 	return
 }
 
