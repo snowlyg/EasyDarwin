@@ -88,6 +88,10 @@ func (server *Server) Start() (err error) {
 	ffmpeg := utils.Conf().Section("rtsp").Key("ffmpeg_path").MustString("")
 	m3u8DirPath := utils.Conf().Section("rtsp").Key("m3u8_dir_path").MustString("")
 
+	go server.UdplRtp.Run()
+	go server.UdplRtcp.Run()
+	go server.Tcpl.Run()
+
 	go func() { // 保持到本地
 		pusher2FfmpegMap := make(map[*Pusher]*exec.Cmd)
 		logger.Printf("Prepare to save stream to local....")
@@ -158,9 +162,6 @@ func (server *Server) Start() (err error) {
 
 	server.Stoped = false
 
-	server.UdplRtp.Run()
-	server.UdplRtcp.Run()
-	server.Tcpl.Run()
 	return
 }
 
@@ -170,6 +171,10 @@ func (server *Server) Stop() {
 	server.pushersLock.Lock()
 	server.pushers = make(map[string]*Pusher)
 	server.pushersLock.Unlock()
+
+	server.UdplRtcp.Close()
+	server.UdplRtp.Close()
+	server.Tcpl.Close()
 
 	close(server.addPusherCh)
 	close(server.removePusherCh)

@@ -254,6 +254,7 @@ func newProgram(sargs []string) (*Program, error) {
 	log.Printf("rtsp-simple-server %s", Version)
 	httpPort := utils.Conf().Section("http").Key("port").MustInt(10008)
 	rtspServer := rtsp.GetServer()
+	rtspServer.Args = args
 	var err error
 
 	rtspServer.UdplRtp, err = rtsp.NewServerUdpListener(rtspServer, args.RtpPort, rtsp.TRACK_FLOW_RTP)
