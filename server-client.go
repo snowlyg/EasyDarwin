@@ -321,7 +321,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				"CSeq":         []string{cseq[0]},
 				"Content-Base": []string{req.Url.String()},
 				"Content-Type": []string{"application/sdp"},
-				"Transport":    []string{"RTP/AVP/TCP"},
+				//"Transport":    []string{"RTP/AVP/TCP"},
 			},
 			Content: sdp,
 		})
