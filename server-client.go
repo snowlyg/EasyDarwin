@@ -584,6 +584,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				rtpPort, rtcpPort := th.GetPorts("client_port")
+				c.log(fmt.Sprintf("%v", rtcpPort))
+				c.log(fmt.Sprintf("%v", rtpPort))
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", tsRaw[0]))
 					return false
