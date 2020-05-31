@@ -73,6 +73,13 @@ func (server *Server) Start() (err error) {
 					err = cmd.Start()
 					if err != nil {
 						logger.Printf("Start ffmpeg err:%v", err)
+					} else {
+						f, err := os.OpenFile(path.Join(dir, fmt.Sprintf("log.txt")), os.O_RDWR|os.O_CREATE, 0755)
+						if err == nil {
+							cmd.Stdout = f
+							cmd.Stderr = f
+						}
+						logger.Printf("Start ffmpeg succee")
 					}
 
 					pusher2FfmpegMap[pusher] = cmd

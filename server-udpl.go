@@ -11,15 +11,15 @@ type udpWrite struct {
 	buf  []byte
 }
 
-type ServerUdpListener struct {
-	P     *Program
-	Nconn *net.UDPConn
-	Flow  TrackFlow
-	Write chan *udpWrite
-	Done  chan struct{}
+type serverUdpListener struct {
+	p     *program
+	nconn *net.UDPConn
+	flow  trackFlow
+	write chan *udpWrite
+	done  chan struct{}
 }
 
-func NewServerUdpListener(p *Program, port int, flow TrackFlow) (*ServerUdpListener, error) {
+func newServerUdpListener(p *program, port int, flow trackFlow) (*serverUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -27,21 +27,21 @@ func NewServerUdpListener(p *Program, port int, flow TrackFlow) (*ServerUdpListe
 		return nil, err
 	}
 
-	l := &ServerUdpListener{
-		P:     p,
-		Nconn: nconn,
-		Flow:  flow,
-		Write: make(chan *udpWrite),
-		Done:  make(chan struct{}),
+	l := &serverUdpListener{
+		p:     p,
+		nconn: nconn,
+		flow:  flow,
+		write: make(chan *udpWrite),
+		done:  make(chan struct{}),
 	}
 
 	l.log("opened on :%d", port)
 	return l, nil
 }
 
-func (l *ServerUdpListener) log(format string, args ...interface{}) {
+func (l *serverUdpListener) log(format string, args ...interface{}) {
 	var label string
-	if l.Flow == TRACK_FLOW_RTP {
+	if l.flow == _TRACK_FLOW_RTP {
 		label = "RTP"
 	} else {
 		label = "RTCP"
@@ -49,11 +49,11 @@ func (l *ServerUdpListener) log(format string, args ...interface{}) {
 	log.Printf("[UDP/"+label+" listener] "+format, args...)
 }
 
-func (l *ServerUdpListener) Start() {
+func (l *serverUdpListener) Start() {
 	go func() {
-		for w := range l.Write {
-			l.Nconn.SetWriteDeadline(time.Now().Add(l.P.Args.WriteTimeout))
-			l.Nconn.WriteTo(w.buf, w.addr)
+		for w := range l.write {
+			l.nconn.SetWriteDeadline(time.Now().Add(l.p.args.writeTimeout))
+			l.nconn.WriteTo(w.buf, w.addr)
 		}
 	}()
 
@@ -62,29 +62,29 @@ func (l *ServerUdpListener) Start() {
 		// this is necessary since the buffer is propagated with channels
 		// so it must be unique.
 		buf := make([]byte, 2048) // UDP MTU is 1400
-		n, addr, err := l.Nconn.ReadFromUDP(buf)
+		n, addr, err := l.nconn.ReadFromUDP(buf)
 		if err != nil {
 			break
 		}
 
 		func() {
-			l.P.Tcpl.Mutex.RLock()
-			defer l.P.Tcpl.Mutex.RUnlock()
+			l.p.tcpl.mutex.RLock()
+			defer l.p.tcpl.mutex.RUnlock()
 
 			// find path and track id from ip and port
 			path, trackId := func() (string, int) {
-				for _, pub := range l.P.Tcpl.Publishers {
+				for _, pub := range l.p.tcpl.publishers {
 					for i, t := range pub.streamTracks {
 						if !pub.ip().Equal(addr.IP) {
 							continue
 						}
 
-						if l.Flow == TRACK_FLOW_RTP {
-							if t.RtpPort == addr.Port {
+						if l.flow == _TRACK_FLOW_RTP {
+							if t.rtpPort == addr.Port {
 								return pub.path, i
 							}
 						} else {
-							if t.RtcpPort == addr.Port {
+							if t.rtcpPort == addr.Port {
 								return pub.path, i
 							}
 						}
@@ -96,16 +96,16 @@ func (l *ServerUdpListener) Start() {
 				return
 			}
 
-			l.P.Tcpl.forwardTrack(path, trackId, l.Flow, buf[:n])
+			l.p.tcpl.forwardTrack(path, trackId, l.flow, buf[:n])
 		}()
 	}
 
-	close(l.Write)
+	close(l.write)
 
-	close(l.Done)
+	close(l.done)
 }
 
-func (l *ServerUdpListener) Stop() {
-	l.Nconn.Close()
-	<-l.Done
+func (l *serverUdpListener) Stop() {
+	l.nconn.Close()
+	<-l.done
 }

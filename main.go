@@ -25,61 +25,61 @@ var (
 )
 var Version = "v0.0.0"
 
-type TrackFlow int
+type trackFlow int
 
 const (
-	TRACK_FLOW_RTP TrackFlow = iota
-	TRACK_FLOW_RTCP
+	_TRACK_FLOW_RTP trackFlow = iota
+	_TRACK_FLOW_RTCP
 )
 
-type Track struct {
-	RtpPort  int
-	RtcpPort int
+type track struct {
+	rtpPort  int
+	rtcpPort int
 }
 
-type StreamProtocol int
+type streamProtocol int
 
 const (
-	STREAM_PROTOCOL_UDP StreamProtocol = iota
-	STREAM_PROTOCOL_TCP
+	_STREAM_PROTOCOL_UDP streamProtocol = iota
+	_STREAM_PROTOCOL_TCP
 )
 
-func (s StreamProtocol) String() string {
-	if s == STREAM_PROTOCOL_UDP {
+func (s streamProtocol) String() string {
+	if s == _STREAM_PROTOCOL_UDP {
 		return "udp"
 	}
 	return "tcp"
 }
 
-type Args struct {
-	Version      bool
-	ProtocolsStr string
-	RtspPort     int
-	RtpPort      int
-	RtcpPort     int
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	PublishUser  string
-	PublishPass  string
-	ReadUser     string
-	ReadPass     string
-	PreScript    string
-	PostScript   string
+type args struct {
+	version      bool
+	protocolsStr string
+	rtspPort     int
+	rtpPort      int
+	rtcpPort     int
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+	publishUser  string
+	publishPass  string
+	readUser     string
+	readPass     string
+	preScript    string
+	postScript   string
 }
 
-type Program struct {
-	Protocols  map[StreamProtocol]struct{}
-	Args       Args
+type program struct {
+	protocols  map[streamProtocol]struct{}
+	args       args
 	HttpPort   int
 	HttpServer *http.Server
 	rtspServer *rtsp.Server
-	Tcpl       *ServerTcpListener
-	UdplRtp    *ServerUdpListener
-	UdplRtcp   *ServerUdpListener
+	tcpl       *serverTcpListener
+	udplRtp    *serverUdpListener
+	udplRtcp   *serverUdpListener
 }
 
 // StopHTTP 停止 http
-func (p *Program) StopHTTP() (err error) {
+func (p *program) StopHTTP() (err error) {
 	if p.HttpServer == nil {
 		err = fmt.Errorf("HTTP Server Not Found")
 		return
@@ -93,7 +93,7 @@ func (p *Program) StopHTTP() (err error) {
 }
 
 // StartHTTP 启动 http
-func (p *Program) StartHTTP() (err error) {
+func (p *program) StartHTTP() (err error) {
 	p.HttpServer = &http.Server{
 		Addr:              fmt.Sprintf(":%d", p.HttpPort),
 		Handler:           routers.Router,
@@ -110,16 +110,12 @@ func (p *Program) StartHTTP() (err error) {
 	return
 }
 
-func (p *Program) Start(s service.Service) (err error) {
+func (p *program) Start(s service.Service) (err error) {
 	log.Println("********** START **********")
 	if utils.IsPortInUse(p.HttpPort) {
 		err = fmt.Errorf("HTTP port[%d] In Use", p.HttpPort)
 		return
 	}
-
-	go p.UdplRtp.Start()
-	go p.UdplRtcp.Start()
-	go p.Tcpl.Start()
 
 	err = models.Init()
 	if err != nil {
@@ -131,6 +127,18 @@ func (p *Program) Start(s service.Service) (err error) {
 	}
 
 	err = p.StartHTTP()
+	if err != nil {
+		return
+	}
+	err = p.StartUdplRtcp()
+	if err != nil {
+		return
+	}
+	err = p.StartUdplRtp()
+	if err != nil {
+		return
+	}
+	err = p.StartTcpl()
 	if err != nil {
 		return
 	}
@@ -147,9 +155,6 @@ func (p *Program) Start(s service.Service) (err error) {
 	}
 	go func() {
 		for range routers.API.RestartChan {
-			p.UdplRtcp.Stop()
-			p.UdplRtp.Stop()
-			p.Tcpl.Stop()
 			err = p.StopRTSP()
 			if err != nil {
 				return
@@ -160,9 +165,6 @@ func (p *Program) Start(s service.Service) (err error) {
 			}
 
 			utils.ReloadConf()
-			go p.UdplRtp.Start()
-			go p.UdplRtcp.Start()
-			go p.Tcpl.Start()
 
 			err = p.StartHTTP()
 			if err != nil {
@@ -180,7 +182,7 @@ func (p *Program) Start(s service.Service) (err error) {
 }
 
 // StartRTSP 启动 rtsp
-func (p *Program) StartRTSP() (err error) {
+func (p *program) StartRTSP() (err error) {
 	if p.rtspServer == nil {
 		err = fmt.Errorf("RTSP Server Not Found")
 		return
@@ -194,8 +196,40 @@ func (p *Program) StartRTSP() (err error) {
 	return
 }
 
+// StartUdplRtp 启动 rtsp
+func (p *program) StartUdplRtp() (err error) {
+	if p.udplRtp == nil {
+		err = fmt.Errorf("udplRtp Server Not Found")
+		return
+	}
+
+	go p.udplRtp.Start()
+	return
+}
+
+// StartUdplRtcp 启动 rtsp
+func (p *program) StartUdplRtcp() (err error) {
+	if p.udplRtcp == nil {
+		err = fmt.Errorf("udplRtp Server Not Found")
+		return
+	}
+	go p.udplRtcp.Start()
+
+	return
+}
+
+// StartTcpl 启动 rtsp
+func (p *program) StartTcpl() (err error) {
+	if p.tcpl == nil {
+		err = fmt.Errorf("udplRtp Server Not Found")
+		return
+	}
+	go p.tcpl.Start()
+	return
+}
+
 // StopRTSP 停止 rtsp
-func (p *Program) StopRTSP() (err error) {
+func (p *program) StopRTSP() (err error) {
 	if p.rtspServer == nil {
 		err = fmt.Errorf("RTSP Server Not Found")
 		return
@@ -204,21 +238,52 @@ func (p *Program) StopRTSP() (err error) {
 	return
 }
 
+// StopTcpl 停止 rtsp
+func (p *program) StopTcpl() (err error) {
+	if p.tcpl == nil {
+		err = fmt.Errorf("RTSP Server Not Found")
+		return
+	}
+	p.tcpl.Stop()
+	return
+}
+
+// StopUdplRtcp 停止 rtsp
+func (p *program) StopUdplRtcp() (err error) {
+	if p.udplRtcp == nil {
+		err = fmt.Errorf("RTSP Server Not Found")
+		return
+	}
+	p.udplRtcp.Stop()
+	return
+}
+
+// StopUdplRtp 停止 rtsp
+func (p *program) StopUdplRtp() (err error) {
+	if p.udplRtp == nil {
+		err = fmt.Errorf("RTSP Server Not Found")
+		return
+	}
+	p.udplRtp.Stop()
+	return
+}
+
 // Stop 停止服务
-func (p *Program) Stop(s service.Service) (err error) {
+func (p *program) Stop(s service.Service) (err error) {
 	defer log.Println("********** STOP **********")
 	defer utils.CloseLogWriter()
-	_ = p.StopRTSP()
-	_ = p.StopHTTP()
 
-	p.UdplRtcp.Stop()
-	p.UdplRtp.Stop()
-	p.Tcpl.Stop()
+	p.StopTcpl()
+	p.StopUdplRtcp()
+	p.StopUdplRtp()
+	p.StopRTSP()
+	p.StopHTTP()
+
 	models.Close()
 	return
 }
 
-func newProgram(sargs []string) (*Program, error) {
+func newProgram(sargs []string) (*program, error) {
 	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" + "RTSP server."
 
 	argVersion := kingpin.Flag("version", "print version").Bool()
@@ -237,35 +302,35 @@ func newProgram(sargs []string) (*Program, error) {
 
 	kingpin.MustParse(kingpin.CommandLine.Parse(sargs))
 
-	args := Args{
-		Version:      *argVersion,
-		ProtocolsStr: *argProtocolsStr,
-		RtspPort:     *argRtspPort,
-		RtpPort:      *argRtpPort,
-		RtcpPort:     *argRtcpPort,
-		ReadTimeout:  *argReadTimeout,
-		WriteTimeout: *argWriteTimeout,
-		PublishUser:  *argPublishUser,
-		PublishPass:  *argPublishPass,
-		ReadUser:     *argReadUser,
-		ReadPass:     *argReadPass,
-		PreScript:    *argPreScript,
-		PostScript:   *argPostScript,
+	args := args{
+		version:      *argVersion,
+		protocolsStr: *argProtocolsStr,
+		rtspPort:     *argRtspPort,
+		rtpPort:      *argRtpPort,
+		rtcpPort:     *argRtcpPort,
+		readTimeout:  *argReadTimeout,
+		writeTimeout: *argWriteTimeout,
+		publishUser:  *argPublishUser,
+		publishPass:  *argPublishPass,
+		readUser:     *argReadUser,
+		readPass:     *argReadPass,
+		preScript:    *argPreScript,
+		postScript:   *argPostScript,
 	}
 
-	if args.Version == true {
+	if args.version == true {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
 
-	protocols := make(map[StreamProtocol]struct{})
-	for _, proto := range strings.Split(args.ProtocolsStr, ",") {
+	protocols := make(map[streamProtocol]struct{})
+	for _, proto := range strings.Split(args.protocolsStr, ",") {
 		switch proto {
 		case "udp":
-			protocols[STREAM_PROTOCOL_UDP] = struct{}{}
+			protocols[_STREAM_PROTOCOL_UDP] = struct{}{}
 
 		case "tcp":
-			protocols[STREAM_PROTOCOL_TCP] = struct{}{}
+			protocols[_STREAM_PROTOCOL_TCP] = struct{}{}
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)
 		}
@@ -274,36 +339,36 @@ func newProgram(sargs []string) (*Program, error) {
 	if len(protocols) == 0 {
 		return nil, fmt.Errorf("no protocols provided")
 	}
-	if (args.RtpPort % 2) != 0 {
+	if (args.rtpPort % 2) != 0 {
 		return nil, fmt.Errorf("rtp port must be even")
 	}
-	if args.RtcpPort != (args.RtpPort + 1) {
+	if args.rtcpPort != (args.rtpPort + 1) {
 		return nil, fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
-	if args.PublishUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.PublishUser) {
+	if args.publishUser != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.publishUser) {
 			return nil, fmt.Errorf("publish username must be alphanumeric")
 		}
 	}
-	if args.PublishPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.PublishPass) {
+	if args.publishPass != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.publishPass) {
 			return nil, fmt.Errorf("publish password must be alphanumeric")
 		}
 	}
-	if args.ReadUser != "" && args.ReadPass == "" || args.ReadUser == "" && args.ReadPass != "" {
+	if args.readUser != "" && args.readPass == "" || args.readUser == "" && args.readPass != "" {
 		return nil, fmt.Errorf("read username and password must be both filled")
 	}
-	if args.ReadUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.ReadUser) {
+	if args.readUser != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.readUser) {
 			return nil, fmt.Errorf("read username must be alphanumeric")
 		}
 	}
-	if args.ReadPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.ReadPass) {
+	if args.readPass != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.readPass) {
 			return nil, fmt.Errorf("read password must be alphanumeric")
 		}
 	}
-	if args.ReadUser != "" && args.ReadPass == "" || args.ReadUser == "" && args.ReadPass != "" {
+	if args.readUser != "" && args.readPass == "" || args.readUser == "" && args.readPass != "" {
 		return nil, fmt.Errorf("read username and password must be both filled")
 	}
 
@@ -311,28 +376,29 @@ func newProgram(sargs []string) (*Program, error) {
 	httpPort := utils.Conf().Section("http").Key("port").MustInt(10008)
 	rtspServer := rtsp.GetServer()
 
-	p := &Program{
-		Protocols:  protocols,
-		Args:       args,
+	p := &program{
+		protocols:  protocols,
+		args:       args,
 		HttpPort:   httpPort,
 		rtspServer: rtspServer,
 	}
 	var err error
-	p.UdplRtp, err = NewServerUdpListener(p, args.RtpPort, TRACK_FLOW_RTP)
+	p.udplRtp, err = newServerUdpListener(p, args.rtpPort, _TRACK_FLOW_RTP)
 	if err != nil {
 		return nil, err
 
 	}
 
-	p.UdplRtcp, err = NewServerUdpListener(p, args.RtcpPort, TRACK_FLOW_RTCP)
+	p.udplRtcp, err = newServerUdpListener(p, args.rtcpPort, _TRACK_FLOW_RTCP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.Tcpl, err = NewServerTcpListener(p)
+	p.tcpl, err = newServerTcpListener(p)
 	if err != nil {
 		return nil, err
 	}
+
 	return p, nil
 }
 
@@ -374,4 +440,7 @@ func main() {
 	}
 
 	figure.NewFigure("EasyDarwin", "", false).Print()
+
+	infty := make(chan struct{})
+	<-infty
 }

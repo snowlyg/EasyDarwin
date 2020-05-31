@@ -8,55 +8,55 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-type ServerTcpListener struct {
-	Server     *Program
-	Nconn      *net.TCPListener
-	Mutex      sync.RWMutex
-	Clients    map[*serverClient]struct{}
-	Publishers map[string]*serverClient
-	Done       chan struct{}
+type serverTcpListener struct {
+	p          *program
+	nconn      *net.TCPListener
+	mutex      sync.RWMutex
+	clients    map[*serverClient]struct{}
+	publishers map[string]*serverClient
+	done       chan struct{}
 }
 
-func NewServerTcpListener(p *Program) (*ServerTcpListener, error) {
+func newServerTcpListener(p *program) (*serverTcpListener, error) {
 	nconn, err := net.ListenTCP("tcp", &net.TCPAddr{
-		Port: p.Args.RtspPort,
+		Port: p.args.rtspPort,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	l := &ServerTcpListener{
-		Server:     p,
-		Nconn:      nconn,
-		Clients:    make(map[*serverClient]struct{}),
-		Publishers: make(map[string]*serverClient),
-		Done:       make(chan struct{}),
+	l := &serverTcpListener{
+		p:          p,
+		nconn:      nconn,
+		clients:    make(map[*serverClient]struct{}),
+		publishers: make(map[string]*serverClient),
+		done:       make(chan struct{}),
 	}
 
-	l.log("opened on :%d", p.Args.RtspPort)
+	l.log("opened on :%d", p.args.rtspPort)
 	return l, nil
 }
 
-func (l *ServerTcpListener) log(format string, args ...interface{}) {
+func (l *serverTcpListener) log(format string, args ...interface{}) {
 	log.Printf("[TCP listener] "+format, args...)
 }
 
-func (l *ServerTcpListener) Start() {
+func (l *serverTcpListener) Start() {
 	for {
-		nconn, err := l.Nconn.AcceptTCP()
+		nconn, err := l.nconn.AcceptTCP()
 		if err != nil {
 			break
 		}
 
-		NewServerClient(l.Server, nconn)
+		newServerClient(l.p, nconn)
 	}
 
 	// close clients
 	var doneChans []chan struct{}
 	func() {
-		l.Mutex.Lock()
-		defer l.Mutex.Unlock()
-		for c := range l.Clients {
+		l.mutex.Lock()
+		defer l.mutex.Unlock()
+		for c := range l.clients {
 			c.Stop()
 			doneChans = append(doneChans, c.done)
 		}
@@ -65,33 +65,33 @@ func (l *ServerTcpListener) Start() {
 		<-c
 	}
 
-	close(l.Done)
+	close(l.done)
 }
 
-func (l *ServerTcpListener) Stop() {
-	l.Nconn.Close()
-	<-l.Done
+func (l *serverTcpListener) Stop() {
+	l.nconn.Close()
+	<-l.done
 }
 
-func (l *ServerTcpListener) forwardTrack(path string, id int, flow TrackFlow, frame []byte) {
-	for c := range l.Clients {
+func (l *serverTcpListener) forwardTrack(path string, id int, flow trackFlow, frame []byte) {
+	for c := range l.clients {
 		if c.path == path && c.state == _CLIENT_STATE_PLAY {
-			if c.streamProtocol == STREAM_PROTOCOL_TCP {
-				if flow == TRACK_FLOW_RTP {
-					l.Server.UdplRtp.Write <- &udpWrite{
+			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
+				if flow == _TRACK_FLOW_RTP {
+					l.p.udplRtp.write <- &udpWrite{
 						addr: &net.UDPAddr{
 							IP:   c.ip(),
 							Zone: c.zone(),
-							Port: c.streamTracks[id].RtpPort,
+							Port: c.streamTracks[id].rtpPort,
 						},
 						buf: frame,
 					}
 				} else {
-					l.Server.UdplRtp.Write <- &udpWrite{
+					l.p.udplRtcp.write <- &udpWrite{
 						addr: &net.UDPAddr{
 							IP:   c.ip(),
 							Zone: c.zone(),
-							Port: c.streamTracks[id].RtcpPort,
+							Port: c.streamTracks[id].rtcpPort,
 						},
 						buf: frame,
 					}
