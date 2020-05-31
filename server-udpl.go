@@ -49,7 +49,7 @@ func (l *serverUdpListener) log(format string, args ...interface{}) {
 	log.Printf("[UDP/"+label+" listener] "+format, args...)
 }
 
-func (l *serverUdpListener) Start() {
+func (l *serverUdpListener) run() {
 	go func() {
 		for w := range l.write {
 			l.nconn.SetWriteDeadline(time.Now().Add(l.p.args.writeTimeout))
@@ -105,7 +105,7 @@ func (l *serverUdpListener) Start() {
 	close(l.done)
 }
 
-func (l *serverUdpListener) Stop() {
+func (l *serverUdpListener) close() {
 	l.nconn.Close()
 	<-l.done
 }

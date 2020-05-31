@@ -93,12 +93,12 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 	c.p.tcpl.clients[c] = struct{}{}
 	c.p.tcpl.mutex.Unlock()
 
-	go c.Start()
+	go c.run()
 
 	return c
 }
 
-func (c *serverClient) Stop() error {
+func (c *serverClient) close() error {
 	// already deleted
 	if _, ok := c.p.tcpl.clients[c]; !ok {
 		return nil
@@ -116,7 +116,7 @@ func (c *serverClient) Stop() error {
 			// close all other connections that share the same path
 			for oc := range c.p.tcpl.clients {
 				if oc.path == c.path {
-					oc.Stop()
+					oc.close()
 				}
 			}
 		}
@@ -138,7 +138,7 @@ func (c *serverClient) zone() string {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
 }
 
-func (c *serverClient) Start() {
+func (c *serverClient) run() {
 	c.log("connected")
 
 	if c.p.args.preScript != "" {
@@ -167,7 +167,7 @@ func (c *serverClient) Start() {
 	func() {
 		c.p.tcpl.mutex.Lock()
 		defer c.p.tcpl.mutex.Unlock()
-		c.Stop()
+		c.close()
 	}()
 
 	c.log("disconnected")

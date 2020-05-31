@@ -130,18 +130,6 @@ func (p *program) Start(s service.Service) (err error) {
 	if err != nil {
 		return
 	}
-	err = p.StartUdplRtcp()
-	if err != nil {
-		return
-	}
-	err = p.StartUdplRtp()
-	if err != nil {
-		return
-	}
-	err = p.StartTcpl()
-	if err != nil {
-		return
-	}
 	err = p.StartRTSP()
 	if err != nil {
 		return
@@ -196,38 +184,6 @@ func (p *program) StartRTSP() (err error) {
 	return
 }
 
-// StartUdplRtp 启动 rtsp
-func (p *program) StartUdplRtp() (err error) {
-	if p.udplRtp == nil {
-		err = fmt.Errorf("udplRtp Server Not Found")
-		return
-	}
-
-	go p.udplRtp.Start()
-	return
-}
-
-// StartUdplRtcp 启动 rtsp
-func (p *program) StartUdplRtcp() (err error) {
-	if p.udplRtcp == nil {
-		err = fmt.Errorf("udplRtp Server Not Found")
-		return
-	}
-	go p.udplRtcp.Start()
-
-	return
-}
-
-// StartTcpl 启动 rtsp
-func (p *program) StartTcpl() (err error) {
-	if p.tcpl == nil {
-		err = fmt.Errorf("udplRtp Server Not Found")
-		return
-	}
-	go p.tcpl.Start()
-	return
-}
-
 // StopRTSP 停止 rtsp
 func (p *program) StopRTSP() (err error) {
 	if p.rtspServer == nil {
@@ -238,46 +194,19 @@ func (p *program) StopRTSP() (err error) {
 	return
 }
 
-// StopTcpl 停止 rtsp
-func (p *program) StopTcpl() (err error) {
-	if p.tcpl == nil {
-		err = fmt.Errorf("RTSP Server Not Found")
-		return
-	}
-	p.tcpl.Stop()
-	return
-}
-
-// StopUdplRtcp 停止 rtsp
-func (p *program) StopUdplRtcp() (err error) {
-	if p.udplRtcp == nil {
-		err = fmt.Errorf("RTSP Server Not Found")
-		return
-	}
-	p.udplRtcp.Stop()
-	return
-}
-
-// StopUdplRtp 停止 rtsp
-func (p *program) StopUdplRtp() (err error) {
-	if p.udplRtp == nil {
-		err = fmt.Errorf("RTSP Server Not Found")
-		return
-	}
-	p.udplRtp.Stop()
-	return
-}
-
 // Stop 停止服务
 func (p *program) Stop(s service.Service) (err error) {
 	defer log.Println("********** STOP **********")
 	defer utils.CloseLogWriter()
 
-	p.StopTcpl()
-	p.StopUdplRtcp()
-	p.StopUdplRtp()
-	p.StopRTSP()
-	p.StopHTTP()
+	err = p.StopRTSP()
+	if err != nil {
+		log.Println("start http server error", err)
+	}
+	err = p.StopHTTP()
+	if err != nil {
+		log.Println("start http server error", err)
+	}
 
 	models.Close()
 	return
@@ -399,7 +328,17 @@ func newProgram(sargs []string) (*program, error) {
 		return nil, err
 	}
 
+	go p.udplRtp.run()
+	go p.udplRtcp.run()
+	go p.tcpl.run()
+
 	return p, nil
+}
+
+func (p *program) close() {
+	p.tcpl.close()
+	p.udplRtcp.close()
+	p.udplRtp.close()
 }
 
 func main() {
@@ -440,7 +379,4 @@ func main() {
 	}
 
 	figure.NewFigure("EasyDarwin", "", false).Print()
-
-	infty := make(chan struct{})
-	<-infty
 }

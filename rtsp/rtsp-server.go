@@ -79,7 +79,7 @@ func (server *Server) Start() (err error) {
 							cmd.Stdout = f
 							cmd.Stderr = f
 						}
-						logger.Printf("Start ffmpeg succee")
+						logger.Printf("Start ffmpeg succee,%v", cmd.Stdout)
 					}
 
 					pusher2FfmpegMap[pusher] = cmd

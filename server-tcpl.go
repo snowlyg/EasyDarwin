@@ -41,7 +41,7 @@ func (l *serverTcpListener) log(format string, args ...interface{}) {
 	log.Printf("[TCP listener] "+format, args...)
 }
 
-func (l *serverTcpListener) Start() {
+func (l *serverTcpListener) run() {
 	for {
 		nconn, err := l.nconn.AcceptTCP()
 		if err != nil {
@@ -57,7 +57,7 @@ func (l *serverTcpListener) Start() {
 		l.mutex.Lock()
 		defer l.mutex.Unlock()
 		for c := range l.clients {
-			c.Stop()
+			c.close()
 			doneChans = append(doneChans, c.done)
 		}
 	}()
@@ -68,7 +68,7 @@ func (l *serverTcpListener) Start() {
 	close(l.done)
 }
 
-func (l *serverTcpListener) Stop() {
+func (l *serverTcpListener) close() {
 	l.nconn.Close()
 	<-l.done
 }
