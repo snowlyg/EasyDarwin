@@ -1,6 +1,7 @@
 package rtsp
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"log"
@@ -61,19 +62,20 @@ func (server *Server) Start() (err error) {
 
 					paramStr := utils.Conf().Section("rtsp").Key("decoder").MustString("-strict -2 -threads 2 -c:v copy -c:a copy -f rtsp")
 					paramsOfThisPath := strings.Split(paramStr, " ")
-					params := []string{"-rtsp_transport ", "tcp", "-i", "\"" + pusher.Source + "\"", pusher.Path}
+					params := []string{"-rtsp_transport", "tcp", "-i", pusher.Source, pusher.Path}
 					params = append(params[:4], append(paramsOfThisPath, params[4:]...)...)
 
 					cmd := exec.Command(ffmpeg, params...)
-					f, err := os.OpenFile(path.Join(dir, fmt.Sprintf("log.txt")), os.O_RDWR|os.O_CREATE, 0755)
-					if err == nil {
-						cmd.Stdout = f
-						cmd.Stderr = f
-					}
+					var out bytes.Buffer
+					var stderr bytes.Buffer
+					cmd.Stdout = &out
+					cmd.Stderr = &stderr
 					err = cmd.Start()
 					if err != nil {
-						logger.Printf("Start ffmpeg err:%v", err)
+						fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+						return
 					}
+					fmt.Println("Result: " + out.String())
 
 					pusher2FfmpegMap[pusher] = cmd
 					logger.Printf("add ffmpeg [%v] to pull stream from pusher[%v]", cmd, pusher)
