@@ -169,9 +169,34 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	pusher := rtsp.NewClientPusher(client)
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
-		log.Printf("Pull stream err :%v", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
-		return
+		if rtsp.NewPath != "" {
+			client, err = rtsp.NewRTSPClient(rtsp.GetServer(), rtsp.NewPath, int64(stream.HeartbeatInterval)*1000, agent)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+				return
+			}
+			if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
+				stream.CustomPath = "/" + stream.CustomPath
+			}
+			client.CustomPath = stream.CustomPath
+			switch strings.ToLower(stream.TransType) {
+			case "udp":
+				client.TransType = rtsp.TRANS_TYPE_UDP
+			case "tcp":
+				fallthrough
+			default:
+				client.TransType = rtsp.TRANS_TYPE_TCP
+			}
+
+			pusher = rtsp.NewClientPusher(client)
+			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+		}
+
+		if err != nil {
+			log.Printf("Pull stream err :%v", err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
+			return
+		}
 	}
 
 	log.Printf("Pull to push %v success ", stream.StreamId)

@@ -23,6 +23,8 @@ import (
 	"github.com/pixelbender/go-sdp/sdp"
 )
 
+var NewPath string
+
 type RTSPClient struct {
 	Server *Server
 	SessionLogger
@@ -48,8 +50,8 @@ type RTSPClient struct {
 	OptionIntervalMillis int64
 	SDPRaw               string
 
-	debugLogEnable       bool
-	lastRtpSN            uint16
+	debugLogEnable bool
+	lastRtpSN      uint16
 
 	Agent    string
 	authLine string
@@ -427,8 +429,8 @@ func (client *RTSPClient) startStream() {
 				rtp := ParseRTP(pack.Buffer.Bytes())
 				if rtp != nil {
 					rtpSN := uint16(rtp.SequenceNumber)
-					if client.lastRtpSN != 0 && client.lastRtpSN + 1 != rtpSN {
-						client.logger.Printf("%s, %d packets lost, current SN=%d, last SN=%d\n", client.String(), rtpSN - client.lastRtpSN, rtpSN, client.lastRtpSN)
+					if client.lastRtpSN != 0 && client.lastRtpSN+1 != rtpSN {
+						client.logger.Printf("%s, %d packets lost, current SN=%d, last SN=%d\n", client.String(), rtpSN-client.lastRtpSN, rtpSN, client.lastRtpSN)
 					}
 					client.lastRtpSN = rtpSN
 				}
@@ -573,6 +575,11 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 			return
 		}
 		s := string(line)
+
+		if strings.Contains(s, "Location: ") {
+			NewPath = strings.Replace(s, "Location: ", "", -1)
+		}
+
 		builder.Write(line)
 		if !isPrefix {
 			builder.WriteString("\r\n")
@@ -593,7 +600,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 			resp.Header = respHeader
 			logger.Printf("<<<[IN]\n%s", builder.String())
 
-			if !(statusCode >= 200 && statusCode <= 300) {
+			if statusCode < 200 || (statusCode > 300 && statusCode != 302) {
 				err = fmt.Errorf("Response StatusCode is :%d", statusCode)
 				return
 			}
