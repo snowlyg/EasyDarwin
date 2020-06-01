@@ -193,9 +193,9 @@ func (server *Server) AddPusher(pusher *Pusher) bool {
 	logger := server.logger
 	added := false
 	server.pushersLock.Lock()
-	_, ok := server.pushers[pusher.Path()]
+	_, ok := server.pushers[pusher.ID()]
 	if !ok {
-		server.pushers[pusher.Path()] = pusher
+		server.pushers[pusher.ID()] = pusher
 		logger.Printf("%v start, now pusher size[%d]", pusher, len(server.pushers))
 		added = true
 	} else {
@@ -231,8 +231,8 @@ func (server *Server) RemovePusher(pusher *Pusher) {
 	logger := server.logger
 	removed := false
 	server.pushersLock.Lock()
-	if _pusher, ok := server.pushers[pusher.Path()]; ok && pusher.ID() == _pusher.ID() {
-		delete(server.pushers, pusher.Path())
+	if _pusher, ok := server.pushers[pusher.ID()]; ok && pusher.ID() == _pusher.ID() {
+		delete(server.pushers, pusher.ID())
 		logger.Printf("%v end, now pusher size[%d]\n", pusher, len(server.pushers))
 		removed = true
 	}

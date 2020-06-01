@@ -25,7 +25,7 @@ keep_players=0
 authorization_enable=0
 
 ; 是否使能推送的同事进行本地存储，使能后则可以进行录像查询与回放。
-save_stream_to_local=1
+save_stream_to_local=0
 
 ;easydarwin使用ffmpeg工具来进行存储。这里表示ffmpeg的可执行程序的路径
 ffmpeg_path=ffmpeg

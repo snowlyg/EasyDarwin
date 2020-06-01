@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/penggy/EasyGoLib/db"
-
 	figure "github.com/common-nighthawk/go-figure"
 	"github.com/penggy/EasyGoLib/utils"
 	"github.com/penggy/service"
@@ -124,46 +122,6 @@ func (p *program) Start(s service.Service) (err error) {
 			utils.ReloadConf()
 			_ = p.StartRTSP()
 			_ = p.StartHTTP()
-		}
-	}()
-
-	go func() {
-		log.Printf("demon pull streams")
-		for {
-
-			var streams []models.Stream
-			if err := db.SQLite.Find(&streams).Error; err != nil {
-				log.Printf("find stream err:%v", err)
-				return
-			}
-
-			for i := len(streams) - 1; i > -1; i-- {
-
-				v := streams[i]
-				agent := fmt.Sprintf("EasyDarwinGo/%s", routers.BuildVersion)
-				if routers.BuildDateTime != "" {
-					agent = fmt.Sprintf("%s(%s)", agent, routers.BuildDateTime)
-				}
-
-				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent)
-				if err != nil {
-					continue
-				}
-
-				client.CustomPath = v.CustomPath
-
-				pusher := rtsp.NewClientPusher(client)
-				if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
-					continue
-				}
-
-				if v.Status {
-					rtsp.GetServer().AddPusher(pusher)
-				}
-				//streams = streams[0:i]
-				//streams = append(streams[:i], streams[i+1:]...)
-			}
-			time.Sleep(2 * time.Second)
 		}
 	}()
 	return

@@ -76,23 +76,21 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 		for _, pusher := range rIPushers {
 			port := pusher.Server().TCPPort
 
-			url = fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
-			if port == 554 {
-				url = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
-			}
-
 			if form.Q != "" && !strings.Contains(strings.ToLower(url), strings.ToLower(form.Q)) {
 				continue
 			}
 
-			if stream.URL == pusher.RTSPClient.URL {
+			if stream.StreamId == pusher.RTSPClient.ID {
 
+				url = fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
+				if port == 554 {
+					url = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
+				}
 				if stream.Status {
 					if !pusher.Stoped() {
 						statusText = "已启动"
 					}
 				}
-
 				startAtTime := utils.DateTime(pusher.StartAt())
 				startAt = startAtTime.String()
 				path = pusher.Path()

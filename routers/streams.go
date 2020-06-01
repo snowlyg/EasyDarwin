@@ -93,7 +93,7 @@ func (h *APIHandler) StreamStop(c *gin.Context) {
 	stream := getStream(form.ID)
 	pushers := rtsp.GetServer().GetPushers()
 	for _, v := range pushers {
-		if v.URL() == stream.URL {
+		if v.ID() == stream.StreamId {
 			v.Stop()
 			rtsp.GetServer().RemovePusher(v)
 			c.IndentedJSON(200, "OK")
@@ -195,6 +195,18 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 		if err != nil {
 			log.Printf("Pull stream err :%v", err)
 			c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
+			return
+		}
+
+		log.Printf("Pull to push %v success ", stream.StreamId)
+		rtsp.GetServer().AddPusher(pusher)
+
+		c.IndentedJSON(200, "OK")
+		log.Printf("Stop %v success ", pusher)
+		if pusher.RTSPClient != nil {
+			stream.StreamId = pusher.ID()
+			stream.Status = true
+			db.SQLite.Save(stream)
 			return
 		}
 	}
