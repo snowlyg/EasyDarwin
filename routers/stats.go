@@ -76,28 +76,33 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 		for _, pusher := range rIPushers {
 			port := pusher.Server().TCPPort
 
-			rtsp := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
+			url = fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
 			if port == 554 {
-				rtsp = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
+				url = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
 			}
 
-			if form.Q != "" && !strings.Contains(strings.ToLower(rtsp), strings.ToLower(form.Q)) {
+			if form.Q != "" && !strings.Contains(strings.ToLower(url), strings.ToLower(form.Q)) {
 				continue
 			}
 
 			if stream.URL == pusher.RTSPClient.URL {
+
 				if stream.Status {
 					if !pusher.Stoped() {
 						statusText = "已启动"
 					}
 				}
+
 				startAtTime := utils.DateTime(pusher.StartAt())
 				startAt = startAtTime.String()
-				url, path, inBytes, outBytes, onlines = rtsp, pusher.Path(), pusher.InBytes(), pusher.OutBytes(), len(pusher.GetPlayers())
+				path = pusher.Path()
+				inBytes = pusher.InBytes()
+				outBytes = pusher.OutBytes()
+				onlines = len(pusher.GetPlayers())
 			}
-		}
 
-		pushers = append(pushers, map[string]interface{}{
+		}
+		elems := map[string]interface{}{
 			"id":                stream.ID,
 			"streamId":          stream.StreamId,
 			"url":               url,
@@ -112,8 +117,9 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 			"heartbeatInterval": stream.HeartbeatInterval,
 			"customPath":        stream.CustomPath,
 			"status":            statusText,
-		})
+		}
 
+		pushers = append(pushers, elems)
 	}
 
 	pr := utils.NewPageResult(pushers)
@@ -123,6 +129,7 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 	pr.Slice(form.Start, form.Limit)
 	c.IndentedJSON(200, pr)
+
 }
 
 /**
