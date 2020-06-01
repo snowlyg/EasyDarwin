@@ -6,6 +6,7 @@ import (
 	"fmt"
 	figure "github.com/common-nighthawk/go-figure"
 	"github.com/kardianos/service"
+	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
 	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/routers"
@@ -165,6 +166,33 @@ func (p *program) Start(s service.Service) (err error) {
 			}
 		}
 	}()
+
+	go func() {
+		log.Printf("demon pull streams")
+		for {
+			var streams []models.Stream
+			if err := db.SQLite.Find(&streams).Error; err != nil {
+				log.Printf("find stream err:%v", err)
+				return
+			}
+
+			for i := len(streams) - 1; i > -1; i-- {
+				v := streams[i]
+				pusher := rtsp.NewClientPusher(v.ID, v.URL, v.CustomPath)
+				if rtsp.GetServer().GetPusher(v.CustomPath) != nil {
+					continue
+				}
+				if v.Status {
+					pusher.Stoped = false
+					rtsp.GetServer().AddPusher(pusher)
+				}
+				//streams = streams[0:i]
+				//streams = append(streams[:i], streams[i+1:]...)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+	log.Printf("server start ")
 
 	return
 }

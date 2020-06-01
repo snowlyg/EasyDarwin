@@ -60,9 +60,9 @@ func (server *Server) Start() (err error) {
 						continue
 					}
 
-					paramStr := utils.Conf().Section("rtsp").Key("decoder").MustString("-strict -2 -threads 2 -c:v copy -c:a copy -f rtsp")
+					paramStr := utils.Conf().Section("rtsp").Key("decoder").MustString("-c:v copy -c:a copy -f rtsp")
 					paramsOfThisPath := strings.Split(paramStr, " ")
-					params := []string{"-re", "-rtsp_transport", "tcp", "-i", pusher.Source, pusher.Path}
+					params := []string{"-nostdin", "-rtsp_transport", "tcp", "-i", pusher.Source, pusher.Path}
 					params = append(params[:5], append(paramsOfThisPath, params[5:]...)...)
 
 					cmd := exec.Command(ffmpeg, params...)
