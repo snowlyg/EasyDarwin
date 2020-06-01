@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/db"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/penggy/cors"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
-	"github.com/snowlyg/EasyDarwin/extend/sessions"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/EasyGoLib/utils"
+	"github.com/snowlyg/GoEasyFfmpeg/extend/sessions"
 	validator "gopkg.in/go-playground/validator.v8"
 )
 
@@ -144,6 +144,8 @@ func Init() (err error) {
 		api.GET("/stream/add", NeedLogin(), API.StreamAdd)
 		api.GET("/stream/start", NeedLogin(), API.StreamStart)
 		api.GET("/stream/stop", NeedLogin(), API.StreamStop)
+		api.POST("/stream/startAll", NeedLogin(), API.StreamStartAll)
+		api.POST("/stream/stopAll", NeedLogin(), API.StreamStopAll)
 		api.GET("/stream/del", NeedLogin(), API.StreamDel)
 
 		api.GET("/record/folders", NeedLogin(), API.RecordFolders)
