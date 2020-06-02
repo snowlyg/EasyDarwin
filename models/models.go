@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/db"
+	"github.com/snowlyg/EasyDarwin/extend/utils"
 )
 
 func Init() (err error) {
@@ -10,7 +10,7 @@ func Init() (err error) {
 	if err != nil {
 		return
 	}
-	db.SQLite.AutoMigrate(&User{}, &Stream{})
+	db.SQLite.AutoMigrate(User{}, Stream{})
 	count := 0
 	sec := utils.Conf().Section("http")
 	defUser := sec.Key("default_username").MustString("admin")

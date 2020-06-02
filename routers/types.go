@@ -1,8 +1,8 @@
 package routers
 
-import "github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+import "github.com/snowlyg/EasyDarwin/extend/utils"
 
-var BuildVersion = "v9.0"
+var BuildVersion = "v8.1"
 var BuildDateTime = ""
 
 type PercentData struct {

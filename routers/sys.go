@@ -2,8 +2,6 @@ package routers
 
 import (
 	"fmt"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
 	"log"
 	"net/http"
 	"runtime"
@@ -13,7 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/snowlyg/EasyDarwin/extend/db"
 	"github.com/snowlyg/EasyDarwin/extend/sessions"
+	"github.com/snowlyg/EasyDarwin/extend/utils"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/rtsp"
 )
@@ -216,8 +216,8 @@ func (h *APIHandler) Logout(c *gin.Context) {
 func (h *APIHandler) DefaultLoginInfo(c *gin.Context) {
 	var user models.User
 	sec := utils.Conf().Section("http")
-	defUser := sec.Key("default_username").MustString("")
-	defPass := sec.Key("default_password").MustString("")
+	defUser := sec.Key("default_username").MustString("admin")
+	defPass := sec.Key("default_password").MustString("admin")
 	db.SQLite.First(&user, "username = ?", defUser)
 	if utils.MD5(defPass) != user.Password {
 		defPass = ""

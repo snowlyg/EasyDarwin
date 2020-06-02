@@ -20,8 +20,8 @@
                         <button type="button" class="btn btn-sm btn-success"
                                 @click.prevent="$refs['pullRTSPDlg'].show()"><i class="fa fa-plus"></i> 拉流分发
                         </button>
-                        <button type="button" class="btn btn-sm btn-warning" @click.prevent="startAll()">启动</button>
-                        <button type="button" class="btn btn-sm btn-danger" @click="stopAll()">停止</button>
+                        <button type="button" class="btn btn-sm btn-warning" @click.prevent="startAll()">批量启动</button>
+                        <button type="button" class="btn btn-sm btn-danger" @click="stopAll()">批量停止</button>
                     </div>
                     <div class="form-group pull-right">
                         <div class="input-group">
@@ -37,13 +37,11 @@
                 </form>
             </div>
             <div class="box-body">
-                <el-table :data="pushers" stripe class="view-list" :default-sort="{prop: 'Id', order: 'descending'}"
-                          @sort-change="sortChange" @selection-change="handleSelectionChange">
-                    <el-table-column
-                            type="selection"
-                            width="55">
-                    </el-table-column>
-                    <el-table-column prop="id" label="ID" min-width="60"></el-table-column>
+                <el-table :data="pushers" stripe class="view-list"
+                          :default-sort="{prop: 'startAt', order: 'descending'}" @sort-change="sortChange" @selection-change="handleSelectionChange">
+                    <el-table-column type="selection" width="55"></el-table-column>
+                    <el-table-column prop="id" label="ID" min-width="50"></el-table-column>
+                    <el-table-column prop="pusherId" label="PusherID" min-width="80"></el-table-column>
                     <el-table-column label="播放地址" min-width="240" show-overflow-tooltip>
                         <template slot-scope="scope">
                         <span>
@@ -64,13 +62,12 @@
                         </template>
                     </el-table-column>
                     <el-table-column prop="transType" label="传输方式" min-width="100"></el-table-column>
+                    <el-table-column prop="inBytes" label="上行流量" min-width="120" :formatter="formatBytes"
+                                     sortable="custom"></el-table-column>
+                    <el-table-column prop="outBytes" label="下行流量" min-width="120" :formatter="formatBytes"
+                                     sortable="custom"></el-table-column>
+                    <el-table-column prop="onlines" label="在线人数" min-width="100" sortable="custom"></el-table-column>
                     <el-table-column prop="startAt" label="开始时间" min-width="200" sortable="custom"></el-table-column>
-                    <el-table-column prop="status" label="状态" min-width="70" sortable="custom">
-                        <template slot-scope="scope">
-                            <span v-if="scope.row.status=== '已启动'" class="bg-green" style="padding: 3px">{{scope.row.status}}</span>
-                            <span v-else class="bg-red" style="padding: 3px">{{scope.row.status}}</span>
-                        </template>
-                    </el-table-column>
                     <el-table-column label="操作" min-width="200" fixed="right">
                         <template slot-scope="scope">
                             <div class="btn-group">
@@ -122,7 +119,7 @@
         data() {
             return {
                 q: "",
-                sort: "ID",
+                sort: "startAt",
                 order: "descending",
                 pushers: [],
                 total: 0,
@@ -141,10 +138,10 @@
             }
         },
         mounted() {
-            this.$refs["q"].focus();
-            // this.timer = setInterval(() => {
-            this.getPushers();
-            // }, 3000);
+            // this.$refs["q"].focus();
+            this.timer = setInterval(() => {
+                this.getPushers();
+            }, 3000);
         },
         watch: {
             q: function (newVal, oldVal) {
@@ -222,11 +219,11 @@
             },
             stopAll() {
                 for (let i = 0; i < this.multipleSelection.length; i++) {
-                    this.ids += this.multipleSelection[i].id+",";
+                    this.ids += this.multipleSelection[i].id + ",";
                 }
 
                 $.post("/api/v1/stream/stopAll", {
-                    ids:  JSON.stringify(this.ids)
+                    ids: JSON.stringify(this.ids)
                 }).then(data => {
                     this.getPushers();
                 })
@@ -236,7 +233,7 @@
                     this.ids += this.multipleSelection[i].id + ",";
                 }
                 $.post("/api/v1/stream/startAll", {
-                    ids: JSON.stringify( this.ids)
+                    ids: JSON.stringify(this.ids)
                 }).then(data => {
                     this.getPushers();
                 })

@@ -79,13 +79,13 @@ export default {
     computed: {
         passwordPlaceholder() {
             if(this.defaultPassword) {
-               return `密码(${this.defaultPassword})`
+                return `密码(${this.defaultPassword})`
             }
             return "密码"
         },
         usernamePlaceholder() {
             if(this.defaultUsername) {
-               return `用户名(${this.defaultUsername})`
+                return `用户名(${this.defaultUsername})`
             }
             return "用户名";
         }

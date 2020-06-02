@@ -7,14 +7,13 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/penggy/cors"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/snowlyg/EasyDarwin/extend/db"
 	"github.com/snowlyg/EasyDarwin/extend/sessions"
+	"github.com/snowlyg/EasyDarwin/extend/utils"
 	validator "gopkg.in/go-playground/validator.v8"
 )
 
@@ -54,13 +53,13 @@ import (
 var Router *gin.Engine
 
 func init() {
-	_ = mime.AddExtensionType(".svg", "image/svg+xml")
-	_ = mime.AddExtensionType(".m3u8", "application/vnd.apple.mpegurl")
+	mime.AddExtensionType(".svg", "image/svg+xml")
+	mime.AddExtensionType(".m3u8", "application/vnd.apple.mpegurl")
 	// mime.AddExtensionType(".m3u8", "application/x-mpegurl")
-	_ = mime.AddExtensionType(".ts", "video/mp2t")
+	mime.AddExtensionType(".ts", "video/mp2t")
 	// prevent on Windows with Dreamware installed, modified registry .css -> application/x-css
 	// see https://stackoverflow.com/questions/22839278/python-built-in-server-not-loading-css
-	_ = mime.AddExtensionType(".css", "text/css; charset=utf-8")
+	mime.AddExtensionType(".css", "text/css; charset=utf-8")
 
 	gin.DisableConsoleColor()
 	gin.SetMode(gin.ReleaseMode)
@@ -93,11 +92,10 @@ func Errors() gin.HandlerFunc {
 	}
 }
 
-// NeedLogin 登录认证
 func NeedLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if sessions.Default(c).Get("uid") == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, "请登录")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 		c.Next()
@@ -107,17 +105,14 @@ func NeedLogin() gin.HandlerFunc {
 func Init() (err error) {
 	Router = gin.New()
 	pprof.Register(Router)
-	Router.Use(gin.Logger())
+	// Router.Use(gin.Logger())
 	Router.Use(gin.Recovery())
 	Router.Use(Errors())
 	Router.Use(cors.Default())
 
-	store := sessions.NewGormStoreWithOptions(
-		db.SQLite, sessions.GormStoreOptions{
-			TableName: "t_sessions",
-		},
-		[]byte("EasyDarwin@2020"),
-	)
+	store := sessions.NewGormStoreWithOptions(db.SQLite, sessions.GormStoreOptions{
+		TableName: "t_sessions",
+	}, []byte("EasyDarwin@2018"))
 	tokenTimeout := utils.Conf().Section("http").Key("token_timeout").MustInt(7 * 86400)
 	store.Options(sessions.Options{HttpOnly: true, MaxAge: tokenTimeout, Path: "/"})
 	sessionHandle := sessions.Sessions("token", store)
@@ -144,8 +139,8 @@ func Init() (err error) {
 		api.GET("/stream/add", NeedLogin(), API.StreamAdd)
 		api.GET("/stream/start", NeedLogin(), API.StreamStart)
 		api.GET("/stream/stop", NeedLogin(), API.StreamStop)
-		//api.POST("/stream/startAll", NeedLogin(), API.StreamStartAll)
-		//api.POST("/stream/stopAll", NeedLogin(), API.StreamStopAll)
+		api.POST("/stream/startAll", NeedLogin(), API.StreamStartAll)
+		api.POST("/stream/stopAll", NeedLogin(), API.StreamStopAll)
 		api.GET("/stream/del", NeedLogin(), API.StreamDel)
 
 		api.GET("/record/folders", NeedLogin(), API.RecordFolders)
