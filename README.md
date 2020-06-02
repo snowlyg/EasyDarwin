@@ -1,156 +1,17 @@
 # EasyDarwin开源流媒体服务器
 
+这是一个 EasyDarwin 的 fork 分支，主要是修复了某些资源推流的时候会出现 302 重定向的问题。
 
-## 主要功能特点
+同时对推流页面做了一些小修改，增加了推流列表的启动和停止管理。
 
-- 基于Golang开发维护；
+很可惜，此项目在推流电信 iptv 资源的表现不好，主要是 iptv 的资源，SDP 协议采用的是 MP2T/AVP 传输类型。
 
-- 支持Windows、Linux、macOS平台；
+我采用了另一种方案，使用 FFMPEG + RTMP 或者 FFMPEG + RTSP 甚至是 FFMPEG+ HLS 的方式实现 IPTV 资源的推流。
 
-- 支持RTSP推流分发（推模式转发）；
+我用 EasyDarwin 改写了一个项目用于管理 FFMPEG 命令 ：[https://github.com/snowlyg/GoEasyFfmpeg](https://github.com/snowlyg/GoEasyFfmpeg),此项目只用于管理 FFMPEG 命令
+所有你需要另外部署一个 RTMP 或者 RTSP 服务，可以使用 [https://github.com/gwuhaolin/livego](https://github.com/gwuhaolin/livego),或者 nignx 搭建。
+当然，你还需要安装 FFMPEG。
 
-- 支持RTSP拉流分发（拉模式转发）；
 
-- 服务端录像 参考:https://blog.csdn.net/jyt0551/article/details/84189498
-
-- 服务端录像检索与回放 参考:https://blog.csdn.net/jyt0551/article/details/84189498
-
-- 关键帧缓存；
-
-- 秒开画面；
-
-- Web后台管理；
-
-- 分布式负载均衡；
-
-
-## 安装部署
-
-- [下载解压 release 包](https://github.com/EasyDarwin/EasyDarwin/releases)
-
-- 直接运行(Windows)
-
-    EasyDarwin.exe
-    
-    以 `Ctrl + C` 停止服务
-
-- 以服务启动(Windows)
-
-    ServiceInstall-EasyDarwin.exe
-    
-    以 ServiceUninstall-EasyDarwin.exe 卸载 EasyDarwin 服务
-
-- 直接运行(Linux/macOS)
-
-		cd EasyDarwin
-		./easydarwin
-		# Ctrl + C
-
-- 以服务启动(Linux/macOS)
-
-		cd EasyDarwin
-		./start.sh
-		# ./stop.sh
-
-- 查看界面
-	
-	打开浏览器输入 [http://localhost:10008](http://localhost:10008), 进入控制页面,默认用户名密码是admin/admin
-
-- 测试推流
-
-	ffmpeg -re -i C:\Users\Administrator\Videos\test.mkv -rtsp_transport tcp -vcodec h264 -f rtsp rtsp://localhost/test
-
-	ffmpeg -re -i C:\Users\Administrator\Videos\test.mkv -rtsp_transport udp -vcodec h264 -f rtsp rtsp://localhost/test
-			
-
-- 测试播放
-
-	ffplay -rtsp_transport tcp rtsp://localhost/test
-
-	ffplay rtsp://localhost/test 
-
-## 效果图
-
-![snapshot](http://ww1.sinaimg.cn/large/79414a05ly1fwzqdbi8efj20w00mrn0c.jpg)
-
-## 二次开发
-
-### 准备工具
-
-        # go tools
-        go get -u -v github.com/kardianos/govendor
-        go get -u -v github.com/penggy/gobuild
-
-        # npm tools
-        npm i -g apidoc
-        npm i -g rimraf
-
-
-### 编译命令
-
-- 获取代码
-
-        cd $GOPATH/src/github.com
-        mkdir EasyDarwin && cd EasyDarwin
-        git clone https://github.com/EasyDarwin/EasyDarwin.git --depth=1 EasyDarwin
-        cd EasyDarwin
-
-- 以开发模式运行
-
-        npm run dev
-
-- 以开发模式运行前端 Run as dev mode
-
-        npm run dev:www       
-
-- 编译前端  Build www
-
-        cd web_src && npm i
-        cd ..
-        npm run build:www
-
-- 编译 Windows 版本 Build windows version
-
-        npm run build:win
-
-- 编译 Linux/macOS 版本 (在 bash 环境下执行) Build linux/macOS version
-
-        npm run build:lin       
-
-- 清理编译文件 Clean
-
-        npm run clean 
-
-- 打包 Pack
-
-        # install pack
-        npm i -g @penggy/pack
-
-        # for windows
-        npm run build:win
-        pack zip
-
-        # for linux/macOS
-        npm run build:lin
-        pack tar
-
-        # for clean
-        pack clean
-
-
-## 技术支持
-
-- 邮件：[support@easydarwin.org](mailto:support@easydarwin.org) 
-
-- QQ交流群：**436297092**
-
-- EasyDarwin开源流媒体服务器是属于EasyDarwin开源团队的免费产品，大家免费使用，同时，EasyDarwin开源团队也能提供相应的收费技术咨询、技术服务和技术定制，谢谢大家支持！
-
-
-## 获取更多信息
-
-**EasyDarwin**开源项目：[www.EasyDarwin.org](http://www.easydarwin.org)
-
-Copyright &copy; EasyDarwin Team 2012-2018
-
-![EasyDarwin](http://www.easydarwin.org/skin/easydarwin/images/wx_qrcode.jpg)
+###### 如果有疑问可以提交 issues,或者加群咨询 irisgo 交流群 ：676717248
+<a target="_blank" href="//shang.qq.com/wpa/qunwpa?idkey=cc99ccf86be594e790eacc91193789746af7df4a88e84fe949e61e5c6d63537c"><img border="0" src="http://pub.idqqimg.com/wpa/images/group.png" alt="Iris-go" title="Iris-go"></a>
