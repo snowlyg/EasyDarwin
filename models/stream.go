@@ -9,7 +9,7 @@ import (
 type Stream struct {
 	gorm.Model
 	Status            bool
-	PusherId          string `gorm:"type:varchar(256);unique"`
+	PusherId          string `gorm:"type:varchar(256)"`
 	URL               string `gorm:"type:varchar(256);unique"`
 	RealURl           string `gorm:"type:varchar(256)"`
 	CustomPath        string `gorm:"type:varchar(256)"`
@@ -18,9 +18,10 @@ type Stream struct {
 	HeartbeatInterval int
 }
 
-func GetStream(formId string) *Stream {
+func GetStream(formId string) Stream {
 	id, _ := strconv.ParseUint(formId, 10, 64)
+
 	stream := Stream{}
 	db.SQLite.Where("id = ?", id).First(&stream)
-	return &stream
+	return stream
 }

@@ -132,16 +132,16 @@
             };
         },
         beforeDestroy() {
-            if (this.timer) {
-                clearInterval(this.timer);
-                this.timer = 0;
-            }
+            // if (this.timer) {
+            //     clearInterval(this.timer);
+            //     this.timer = 0;
+            // }
         },
         mounted() {
             // this.$refs["q"].focus();
-            this.timer = setInterval(() => {
+            // this.timer = setInterval(() => {
                 this.getPushers();
-            }, 3000);
+            // }, 3000);
         },
         watch: {
             q: function (newVal, oldVal) {

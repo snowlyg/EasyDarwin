@@ -103,10 +103,12 @@ func (c *UDPClient) SetupVideo() (err error) {
 	if err != nil {
 		return
 	}
+
 	c.VConn, err = net.DialUDP("udp", nil, addr)
 	if err != nil {
 		return
 	}
+
 	networkBuffer := utils.Conf().Section("rtsp").Key("network_buffer").MustInt(1048576)
 	if err := c.VConn.SetReadBuffer(networkBuffer); err != nil {
 		logger.Printf("udp client video conn set read buffer error, %v", err)
@@ -137,6 +139,7 @@ func (c *UDPClient) SendRTP(pack *RTPPack) (err error) {
 		err = fmt.Errorf("udp client send rtp got nil pack")
 		return
 	}
+
 	var conn *net.UDPConn
 	switch pack.Type {
 	case RTP_TYPE_AUDIO:

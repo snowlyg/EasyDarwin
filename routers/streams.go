@@ -125,6 +125,8 @@ func startStream(id string) error {
 				return err
 			}
 
+			rtsp.NewPath = ""
+
 			pusher = rtsp.NewClientPusher(client)
 			if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
 				pusher = rtsp.GetServer().GetPusher(pusher.Path())
@@ -134,20 +136,27 @@ func startStream(id string) error {
 				log.Printf("Pull stream err :%v", err)
 				return err
 			}
+			db.SQLite.Model(&stream).Update(map[string]interface{}{"PusherId": pusher.ID(), "Status": true})
+			if stream.Status {
+				rtsp.GetServer().AddPusher(pusher)
+				return nil
+			}
+			return errors.New(fmt.Sprintf("Start fail"))
 
 		} else {
 			log.Printf("Pull stream err :%v", err)
 			return err
 		}
+	} else {
+		db.SQLite.Model(&stream).Update(map[string]interface{}{"PusherId": pusher.ID(), "Status": true})
+		if stream.Status {
+			rtsp.GetServer().AddPusher(pusher)
+			return nil
+		}
+		return errors.New(fmt.Sprintf("Start fail"))
+
 	}
 
-	db.SQLite.Model(&stream).Update(map[string]interface{}{"PusherId": pusher.ID(), "Status": true})
-	if stream.Status {
-		return nil
-	}
-	rtsp.GetServer().AddPusher(pusher)
-
-	return errors.New(fmt.Sprintf("Start fail"))
 }
 
 /**
@@ -257,7 +266,7 @@ func stopStream(id string) bool {
 
 	stream.PusherId = ""
 	stream.Status = false
-	db.SQLite.Model(&stream).Update(map[string]interface{}{"PusherId": "", "Status": false})
+	db.SQLite.Save(&stream)
 	if !stream.Status {
 		log.Printf("Stop %v success ", stream.URL)
 		return true

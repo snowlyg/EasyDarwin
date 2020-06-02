@@ -705,6 +705,7 @@ func (session *Session) SendRTP(pack *RTPPack) (err error) {
 		err = fmt.Errorf("player send rtp got nil pack")
 		return
 	}
+
 	if session.TransType == TRANS_TYPE_UDP {
 		if session.UDPClient == nil {
 			err = fmt.Errorf("player use udp transport but udp client not found")
