@@ -6,7 +6,6 @@ import (
 	"fmt"
 	figure "github.com/common-nighthawk/go-figure"
 	"github.com/kardianos/service"
-	"github.com/snowlyg/EasyDarwin/extend/db"
 	"github.com/snowlyg/EasyDarwin/extend/utils"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/routers"
@@ -123,60 +122,64 @@ func (p *program) Start(s service.Service) (err error) {
 		}
 	}()
 
-	go func() {
-		log.Printf("demon pull streams")
-		for {
-			var streams []models.Stream
-			db.SQLite.Find(&streams)
-			if err := db.SQLite.Find(&streams).Error; err != nil {
-				log.Printf("find stream err:%v", err)
-				return
-			}
-			for i := len(streams) - 1; i > -1; i-- {
-				v := streams[i]
-				if rtsp.GetServer().GetPusher(v.CustomPath) != nil {
-					continue
-				}
-
-				agent := fmt.Sprintf("EasyDarwinGo/%s", routers.BuildVersion)
-				if routers.BuildDateTime != "" {
-					agent = fmt.Sprintf("%s(%s)", agent, routers.BuildDateTime)
-				}
-				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent)
-				if err != nil {
-					continue
-				}
-				client.CustomPath = v.CustomPath
-
-				pusher := rtsp.NewClientPusher(client)
-
-				err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
-				if err != nil {
-					if len(rtsp.NewPath) > 0 {
-						client, err = rtsp.NewRTSPClient(rtsp.GetServer(), rtsp.NewPath, int64(v.HeartbeatInterval)*1000, agent)
-						if err != nil {
-							continue
-						}
-						client.CustomPath = v.CustomPath
-
-						pusher = rtsp.NewClientPusher(client)
-						if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
-							continue
-						}
-						err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
-						if err != nil {
-							log.Printf("Pull stream err :%v", err)
-							continue
-						}
-					}
-				}
-				rtsp.GetServer().AddPusher(pusher)
-				//streams = streams[0:i]
-				//streams = append(streams[:i], streams[i+1:]...)
-			}
-			time.Sleep(10 * time.Second)
-		}
-	}()
+	//go func() {
+	//	log.Printf("demon pull streams")
+	//	for {
+	//		var streams []models.Stream
+	//		db.SQLite.Find(&streams)
+	//		if err := db.SQLite.Find(&streams).Error; err != nil {
+	//			log.Printf("find stream err:%v", err)
+	//			return
+	//		}
+	//		for i := len(streams) - 1; i > -1; i-- {
+	//			v := streams[i]
+	//			if !v.Status {
+	//				continue
+	//			}
+	//			if rtsp.GetServer().GetPusher(v.CustomPath) != nil {
+	//				continue
+	//			}
+	//
+	//			agent := fmt.Sprintf("EasyDarwinGo/%s", routers.BuildVersion)
+	//			if routers.BuildDateTime != "" {
+	//				agent = fmt.Sprintf("%s(%s)", agent, routers.BuildDateTime)
+	//			}
+	//			client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent)
+	//			if err != nil {
+	//				continue
+	//			}
+	//			client.CustomPath = v.CustomPath
+	//
+	//			pusher := rtsp.NewClientPusher(client)
+	//
+	//			err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
+	//			if err != nil {
+	//				if len(rtsp.NewPath) > 0 {
+	//					client, err = rtsp.NewRTSPClient(rtsp.GetServer(), rtsp.NewPath, int64(v.HeartbeatInterval)*1000, agent)
+	//					if err != nil {
+	//						continue
+	//					}
+	//					client.CustomPath = v.CustomPath
+	//
+	//					pusher = rtsp.NewClientPusher(client)
+	//					if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
+	//						continue
+	//					}
+	//					err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
+	//					if err != nil {
+	//						log.Printf("Pull stream err :%v", err)
+	//						continue
+	//					}
+	//				}
+	//			}
+	//			rtsp.GetServer().AddPusher(pusher)
+	//			//streams = streams[0:i]
+	//			//streams = append(streams[:i], streams[i+1:]...)
+	//		}
+	//
+	//		time.Sleep(5 * time.Second)
+	//	}
+	//}()
 	return
 }
 

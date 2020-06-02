@@ -115,6 +115,7 @@ func startStream(id string) error {
 	if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
 		pusher = rtsp.GetServer().GetPusher(pusher.Path())
 	}
+
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
 		if len(rtsp.NewPath) > 0 {
@@ -140,12 +141,11 @@ func startStream(id string) error {
 		}
 	}
 
-	stream.Status = true
-	stream.PusherId = pusher.ID()
-	db.SQLite.Save(stream)
+	db.SQLite.Model(&stream).Update(map[string]interface{}{"PusherId": pusher.ID(), "Status": true})
 	if stream.Status {
 		return nil
 	}
+	rtsp.GetServer().AddPusher(pusher)
 
 	return errors.New(fmt.Sprintf("Start fail"))
 }
@@ -234,24 +234,30 @@ func (h *APIHandler) StreamStop(c *gin.Context) {
 		return
 	}
 
-	if stopStream(form.ID) {
+	isStop := stopStream(form.ID)
+	if isStop {
 		c.IndentedJSON(200, "OK")
 		return
 	}
 
-	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", form.ID))
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Stop stream fail %v", form.ID))
 }
 
 func stopStream(id string) bool {
 
 	stream := models.GetStream(id)
+
 	pusher := rtsp.GetServer().GetPusher(stream.CustomPath)
-	pusher.RTSPClient.Stoped = true
-	rtsp.GetServer().RemovePusher(pusher)
+	if pusher != nil {
+		pusher.RTSPClient.Stoped = true
+		rtsp.GetServer().RemovePusher(pusher)
+	} else {
+		return false
+	}
 
 	stream.PusherId = ""
 	stream.Status = false
-	db.SQLite.Save(stream)
+	db.SQLite.Model(&stream).Update(map[string]interface{}{"PusherId": "", "Status": false})
 	if !stream.Status {
 		log.Printf("Stop %v success ", stream.URL)
 		return true

@@ -18,9 +18,9 @@ type Stream struct {
 	HeartbeatInterval int
 }
 
-func GetStream(formId string) Stream {
+func GetStream(formId string) *Stream {
 	id, _ := strconv.ParseUint(formId, 10, 64)
 	stream := Stream{}
 	db.SQLite.Where("id = ?", id).First(&stream)
-	return stream
+	return &stream
 }
