@@ -3,13 +3,14 @@ package routers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/penggy/EasyGoLib/db"
 	"github.com/snowlyg/EasyDarwin/models"
 	"github.com/snowlyg/EasyDarwin/rtsp"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 )
 
 /**
@@ -29,11 +30,12 @@ import (
  */
 func (h *APIHandler) StreamAdd(c *gin.Context) {
 	type Form struct {
-		Id         uint   `form:"id" `
-		URL        string `form:"source" binding:"required"`
-		CustomPath string `form:"customPath"`
-		TransType  string `form:"transType"`
-		RoomName   string `form:"roomName"` // livego room
+		Id                uint   `form:"id" `
+		URL               string `form:"source" binding:"required"`
+		CustomPath        string `form:"customPath"`
+		TransType         string `form:"transType"`
+		IdleTimeout       int    `form:"idleTimeout"`
+		HeartbeatInterval int    `form:"heartbeatInterval"`
 	}
 	var form Form
 	err := c.Bind(&form)
@@ -42,29 +44,25 @@ func (h *APIHandler) StreamAdd(c *gin.Context) {
 		return
 	}
 
-	// 获取 room key
-	customPath, err := utils.GetHttpCustomPath(form.RoomName)
-	if err != nil {
-		log.Printf("Pull to push err:%v", err)
-	}
-
 	// save to db.
 	oldStream := models.Stream{}
 	if db.SQLite.Where("id = ? ", form.Id).First(&oldStream).RecordNotFound() {
 		stream := models.Stream{
-			URL:        form.URL,
-			CustomPath: customPath, // 请求地址
-			TransType:  form.TransType,
-			RoomName:   form.RoomName,
-			Status:     false,
+			URL:               form.URL,
+			CustomPath:        form.CustomPath,
+			IdleTimeout:       form.IdleTimeout,
+			TransType:         form.TransType,
+			HeartbeatInterval: form.HeartbeatInterval,
+			Status:            false,
 		}
 		db.SQLite.Create(&stream)
 		c.IndentedJSON(200, stream)
 	} else {
 		oldStream.URL = form.URL
-		oldStream.CustomPath = customPath
+		oldStream.CustomPath = form.CustomPath
 		oldStream.TransType = form.TransType
-		oldStream.RoomName = form.RoomName
+		oldStream.IdleTimeout = form.IdleTimeout
+		oldStream.HeartbeatInterval = form.HeartbeatInterval
 		oldStream.Status = false
 		db.SQLite.Save(oldStream)
 		c.IndentedJSON(200, oldStream)
@@ -93,18 +91,23 @@ func (h *APIHandler) StreamStop(c *gin.Context) {
 	}
 
 	stream := getStream(form.ID)
-	stream.Status = false
-	db.SQLite.Save(stream)
-	if !stream.Status {
-		pusher := rtsp.GetServer().GetPusher(stream.CustomPath)
-		pusher.Stoped = true
-		rtsp.GetServer().RemovePusher(pusher)
-		c.IndentedJSON(200, "OK")
-		log.Printf("Stop %v success ", stream.URL)
-		return
+	pushers := rtsp.GetServer().GetPushers()
+	for _, v := range pushers {
+		if v.ID() == stream.StreamId {
+			v.Stop()
+			rtsp.GetServer().RemovePusher(v)
+			c.IndentedJSON(200, "OK")
+			log.Printf("Stop %v success ", v)
+			if v.RTSPClient != nil {
+				stream.Status = false
+				stream.StreamId = ""
+				db.SQLite.Save(stream)
+			}
+			return
+		}
 	}
 
-	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", stream.URL))
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", stream.StreamId))
 }
 
 func getStream(formId string) models.Stream {
@@ -135,29 +138,92 @@ func (h *APIHandler) StreamStart(c *gin.Context) {
 	}
 
 	stream := getStream(form.ID)
-	p := rtsp.GetServer().GetPusher(stream.CustomPath)
+	agent := fmt.Sprintf("EasyDarwinGo/%s", BuildVersion)
+	if BuildDateTime != "" {
+		agent = fmt.Sprintf("%s(%s)", agent, BuildDateTime)
+	}
+
+	p := rtsp.GetServer().GetPusher(stream.URL)
 	if p != nil {
 		rtsp.GetServer().RemovePusher(p)
 	}
 
-	// 获取 room key
-	customPath, err := utils.GetHttpCustomPath(stream.RoomName)
+	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), stream.URL, int64(stream.HeartbeatInterval)*1000, agent)
 	if err != nil {
-		log.Printf("Pull to push err:%v", err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
+		stream.CustomPath = "/" + stream.CustomPath
+	}
+	client.CustomPath = stream.CustomPath
+	switch strings.ToLower(stream.TransType) {
+	case "udp":
+		client.TransType = rtsp.TRANS_TYPE_UDP
+	case "tcp":
+		fallthrough
+	default:
+		client.TransType = rtsp.TRANS_TYPE_TCP
 	}
 
-	stream.Status = true
-	stream.CustomPath = customPath
-	db.SQLite.Save(stream)
-	if stream.Status {
-		pusher := rtsp.NewClientPusher(stream.ID, stream.URL, customPath)
-		pusher.Stoped = false
+	pusher := rtsp.NewClientPusher(client)
+	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+	if err != nil {
+		if rtsp.NewPath != "" {
+			client, err = rtsp.NewRTSPClient(rtsp.GetServer(), rtsp.NewPath, int64(stream.HeartbeatInterval)*1000, agent)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusBadRequest, err.Error())
+				return
+			}
+			if stream.CustomPath != "" && !strings.HasPrefix(stream.CustomPath, "/") {
+				stream.CustomPath = "/" + stream.CustomPath
+			}
+			client.CustomPath = stream.CustomPath
+			switch strings.ToLower(stream.TransType) {
+			case "udp":
+				client.TransType = rtsp.TRANS_TYPE_UDP
+			case "tcp":
+				fallthrough
+			default:
+				client.TransType = rtsp.TRANS_TYPE_TCP
+			}
+
+			pusher = rtsp.NewClientPusher(client)
+			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
+		}
+
+		if err != nil {
+			log.Printf("Pull stream err :%v", err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pull stream err: %v", err))
+			return
+		}
+
+		log.Printf("Pull to push %v success ", stream.StreamId)
 		rtsp.GetServer().AddPusher(pusher)
+
 		c.IndentedJSON(200, "OK")
+		log.Printf("Stop %v success ", pusher)
+		if pusher.RTSPClient != nil {
+			stream.StreamId = pusher.ID()
+			stream.Status = true
+			db.SQLite.Save(stream)
+			return
+		}
+	}
+
+	log.Printf("Pull to push %v success ", stream.StreamId)
+	rtsp.GetServer().AddPusher(pusher)
+
+	c.IndentedJSON(200, "OK")
+	log.Printf("Stop %v success ", pusher)
+	if pusher.RTSPClient != nil {
+		stream.StreamId = pusher.ID()
+		stream.Status = true
+		db.SQLite.Save(stream)
 		return
 	}
 
-	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found or not start", form.ID))
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", form.ID))
 }
 
 /**
@@ -184,4 +250,5 @@ func (h *APIHandler) StreamDel(c *gin.Context) {
 
 	db.SQLite.Unscoped().Delete(stream)
 
+	c.AbortWithStatusJSON(http.StatusBadRequest, fmt.Sprintf("Pusher[%s] not found", stream.StreamId))
 }

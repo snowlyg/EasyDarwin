@@ -1,13 +1,15 @@
 package routers
 
 import (
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/db"
+	"fmt"
+	"github.com/penggy/EasyGoLib/db"
 	"github.com/snowlyg/EasyDarwin/models"
 	"log"
+	"strings"
 	//"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/snowlyg/EasyDarwin/extend/EasyGoLib/utils"
+	"github.com/penggy/EasyGoLib/utils"
 	"github.com/snowlyg/EasyDarwin/rtsp"
 )
 
@@ -52,7 +54,7 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 		return
 	}
 
-	//hostname := utils.GetRequestHostname(c.Request)
+	hostname := utils.GetRequestHostname(c.Request)
 
 	var streams []models.Stream
 	if err := db.SQLite.Find(&streams).Error; err != nil {
@@ -62,31 +64,60 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 	pushers := make([]interface{}, 0)
 	for _, stream := range streams {
-		startAt := "-"
+		var url string
+		var path string
+		var inBytes int
+		var outBytes int
+		var startAt string
+		var onlines int
 		statusText := "已停止"
+
 		rIPushers := rtsp.Instance.GetPushers()
-		for _, v := range rIPushers {
-			if stream.ID == v.ID {
-				if stream.Status {
-					if !v.Stoped {
-						statusText = "已启动"
-						startAt = stream.UpdatedAt.String()
-					}
-				} else {
-					startAt = "-"
-				}
+		for _, pusher := range rIPushers {
+			port := pusher.Server().TCPPort
+
+			if form.Q != "" && !strings.Contains(strings.ToLower(url), strings.ToLower(form.Q)) {
+				continue
 			}
+
+			if stream.StreamId == pusher.RTSPClient.ID {
+
+				url = fmt.Sprintf("rtsp://%s:%d%s", hostname, port, pusher.Path())
+				if port == 554 {
+					url = fmt.Sprintf("rtsp://%s%s", hostname, pusher.Path())
+				}
+				if stream.Status {
+					if !pusher.Stoped() {
+						statusText = "已启动"
+					}
+				}
+				startAtTime := utils.DateTime(pusher.StartAt())
+				startAt = startAtTime.String()
+				path = pusher.Path()
+				inBytes = pusher.InBytes()
+				outBytes = pusher.OutBytes()
+				onlines = len(pusher.GetPlayers())
+			}
+
+		}
+		elems := map[string]interface{}{
+			"id":                stream.ID,
+			"streamId":          stream.StreamId,
+			"url":               url,
+			"path":              path,
+			"source":            stream.URL,
+			"transType":         stream.TransType,
+			"inBytes":           inBytes,
+			"outBytes":          outBytes,
+			"startAt":           startAt,
+			"onlines":           onlines,
+			"idleTimeout":       stream.IdleTimeout,
+			"heartbeatInterval": stream.HeartbeatInterval,
+			"customPath":        stream.CustomPath,
+			"status":            statusText,
 		}
 
-		pushers = append(pushers, map[string]interface{}{
-			"id":        stream.ID,
-			"url":       utils.GetOutPutUrl(stream.RoomName, stream.TransType), //  播放地址
-			"source":    stream.URL,                                            // 源地址
-			"transType": stream.TransType,
-			"startAt":   startAt,
-			"roomName":  stream.RoomName,
-			"status":    statusText,
-		})
+		pushers = append(pushers, elems)
 	}
 
 	pr := utils.NewPageResult(pushers)
@@ -96,6 +127,7 @@ func (h *APIHandler) Pushers(c *gin.Context) {
 
 	pr.Slice(form.Start, form.Limit)
 	c.IndentedJSON(200, pr)
+
 }
 
 /**
@@ -127,17 +159,22 @@ func (h *APIHandler) Players(c *gin.Context) {
 			players = append(players, player)
 		}
 	}
-	//hostname := utils.GetRequestHostname(c.Request)
+	hostname := utils.GetRequestHostname(c.Request)
 	_players := make([]interface{}, 0)
 	for i := 0; i < len(players); i++ {
-		//player := players[i]
+		player := players[i]
+		port := player.Server.TCPPort
+		rtsp := fmt.Sprintf("rtsp://%s:%d%s", hostname, port, player.Path)
+		if port == 554 {
+			rtsp = fmt.Sprintf("rtsp://%s%s", hostname, player.Path)
+		}
 		_players = append(_players, map[string]interface{}{
-			"id": "player.ID",
-
-			"transType": "player.TransType.String()",
-			"inBytes":   "player.InBytes",
-			"outBytes":  "player.OutBytes",
-			"startAt":   "utils.DateTime(player.StartAt)",
+			"id":        player.ID,
+			"path":      rtsp,
+			"transType": player.TransType.String(),
+			"inBytes":   player.InBytes,
+			"outBytes":  player.OutBytes,
+			"startAt":   utils.DateTime(player.StartAt),
 		})
 	}
 	pr := utils.NewPageResult(_players)
