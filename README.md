@@ -12,6 +12,10 @@
 所有你需要另外部署一个 RTMP 或者 RTSP 服务，可以使用 [https://github.com/gwuhaolin/livego](https://github.com/gwuhaolin/livego),或者 nignx 搭建。
 当然，你还需要安装 FFMPEG。
 
+#### 演示地址：（服务器有点垃圾，加载比较慢）账号/密码：admin/admin
+http://www.snowlyg.com:10008/
+
+
 
 ###### 如果有疑问可以提交 issues,或者加群咨询 irisgo 交流群 ：676717248
 <a target="_blank" href="//shang.qq.com/wpa/qunwpa?idkey=cc99ccf86be594e790eacc91193789746af7df4a88e84fe949e61e5c6d63537c"><img border="0" src="http://pub.idqqimg.com/wpa/images/group.png" alt="Iris-go" title="Iris-go"></a>
