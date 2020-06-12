@@ -422,7 +422,6 @@ func (client *RTSPClient) startStream() {
 			}
 			//ch <- append(header, content...)
 			rtpBuf := bytes.NewBuffer(content)
-			content = nil
 			var pack *RTPPack
 			switch channel {
 			case client.aRTPChannel:
@@ -476,7 +475,7 @@ func (client *RTSPClient) startStream() {
 			for _, h := range client.RTPHandles {
 				h(pack)
 			}
-
+			content = nil
 		default: // rtsp
 			builder := bytes.Buffer{}
 			builder.WriteByte(b)
@@ -500,6 +499,7 @@ func (client *RTSPClient) startStream() {
 							return
 						}
 						builder.Write(content)
+						content = nil
 					}
 					client.logger.Printf("<<<[IN]\n%s", builder.String())
 					break
@@ -521,6 +521,7 @@ func (client *RTSPClient) startStream() {
 					}
 				}
 			}
+
 		}
 	}
 }
