@@ -105,6 +105,7 @@ func (server *Server) Start() (err error) {
 						}
 						pusher2ffmpegMap[pusher] = cmd
 						logger.Printf("add ffmpeg [%v] to pull stream from pusher[%v]", cmd, pusher)
+						f.Close()
 					} else {
 						logger.Printf("addPusherChan closed")
 					}
