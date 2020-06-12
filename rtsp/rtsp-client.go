@@ -422,6 +422,7 @@ func (client *RTSPClient) startStream() {
 			}
 			//ch <- append(header, content...)
 			rtpBuf := bytes.NewBuffer(content)
+			content = nil
 			var pack *RTPPack
 			switch channel {
 			case client.aRTPChannel:
