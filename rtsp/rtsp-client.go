@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"net/url"
 	"os"
@@ -380,8 +381,11 @@ func (client *RTSPClient) startStream() {
 	loggerTime := time.Now().Add(-10 * time.Second)
 	defer client.Stop()
 
-	for !client.Stoped {
+	buffer := make(chan []byte, 5)
+	pool := make([][]byte, 20)
 
+	for !client.Stoped {
+		var content []byte
 		if client.OptionIntervalMillis > 0 {
 			if time.Since(startTime) > time.Duration(client.OptionIntervalMillis)*time.Millisecond {
 				startTime = time.Now()
@@ -416,9 +420,14 @@ func (client *RTSPClient) startStream() {
 			}
 
 			channel := int(header[1])
-			b2 := append(header[0:0], header[2:]...)
-			length := binary.BigEndian.Uint16(b2)
-			content := make([]byte, length)
+			length := binary.BigEndian.Uint16(header[2:])
+			select {
+			case content = <-buffer:
+				content = make([]byte, length)
+			default:
+				content = make([]byte, length)
+			}
+
 			_, err = io.ReadFull(client.connRW, content)
 			if err != nil {
 				if !client.Stoped {
@@ -499,7 +508,11 @@ func (client *RTSPClient) startStream() {
 				}
 				if len(line) == 0 {
 					if contentLen != 0 {
-						content := make([]byte, contentLen)
+						select {
+						case content = <-buffer:
+						default:
+							content = make([]byte, contentLen)
+						}
 						_, err = io.ReadFull(client.connRW, content)
 						if err != nil {
 							if !client.Stoped {
@@ -529,9 +542,18 @@ func (client *RTSPClient) startStream() {
 					}
 				}
 			}
-
 		}
 
+		i := rand.Intn(len(pool))
+		if pool[i] != nil {
+			select {
+			case buffer <- pool[i]:
+				pool[i] = nil
+			default:
+			}
+		}
+
+		pool[i] = content
 	}
 
 }
