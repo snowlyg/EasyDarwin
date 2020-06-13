@@ -376,10 +376,15 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 }
 
 func (client *RTSPClient) startStream() {
+	var header []byte
+	var content []byte
+
 	startTime := time.Now()
 	loggerTime := time.Now().Add(-10 * time.Second)
 	defer client.Stop()
+
 	for !client.Stoped {
+
 		if client.OptionIntervalMillis > 0 {
 			if time.Since(startTime) > time.Duration(client.OptionIntervalMillis)*time.Millisecond {
 				startTime = time.Now()
@@ -391,6 +396,7 @@ func (client *RTSPClient) startStream() {
 				}
 			}
 		}
+
 		b, err := client.connRW.ReadByte()
 		if err != nil {
 			if !client.Stoped {
@@ -398,9 +404,10 @@ func (client *RTSPClient) startStream() {
 			}
 			return
 		}
+
 		switch b {
 		case 0x24: // rtp
-			header := make([]byte, 4)
+			header = make([]byte, 4)
 			header[0] = b
 			_, err := io.ReadFull(client.connRW, header[1:])
 			if err != nil {
@@ -410,9 +417,10 @@ func (client *RTSPClient) startStream() {
 				}
 				return
 			}
+
 			channel := int(header[1])
 			length := binary.BigEndian.Uint16(header[2:])
-			content := make([]byte, length)
+			content = make([]byte, length)
 			_, err = io.ReadFull(client.connRW, content)
 			if err != nil {
 				if !client.Stoped {
@@ -420,8 +428,10 @@ func (client *RTSPClient) startStream() {
 				}
 				return
 			}
+
 			//ch <- append(header, content...)
 			rtpBuf := bytes.NewBuffer(content)
+
 			var pack *RTPPack
 			switch channel {
 			case client.aRTPChannel:
@@ -475,8 +485,9 @@ func (client *RTSPClient) startStream() {
 			for _, h := range client.RTPHandles {
 				h(pack)
 			}
-			content = nil
+
 		default: // rtsp
+
 			builder := bytes.Buffer{}
 			builder.WriteByte(b)
 			contentLen := 0
@@ -490,7 +501,7 @@ func (client *RTSPClient) startStream() {
 				}
 				if len(line) == 0 {
 					if contentLen != 0 {
-						content := make([]byte, contentLen)
+						content = make([]byte, contentLen)
 						_, err = io.ReadFull(client.connRW, content)
 						if err != nil {
 							if !client.Stoped {
@@ -499,7 +510,6 @@ func (client *RTSPClient) startStream() {
 							return
 						}
 						builder.Write(content)
-						content = nil
 					}
 					client.logger.Printf("<<<[IN]\n%s", builder.String())
 					break
@@ -523,7 +533,9 @@ func (client *RTSPClient) startStream() {
 			}
 
 		}
+
 	}
+
 }
 
 func (client *RTSPClient) Start(timeout time.Duration) (err error) {
