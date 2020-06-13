@@ -13,7 +13,7 @@ import (
 	"github.com/snowlyg/EasyDarwin/rtsp"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
+	//_ "net/http/pprof"
 	"strings"
 	"time"
 )
