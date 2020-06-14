@@ -119,18 +119,15 @@ func startStream(id string) error {
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
 		if len(rtsp.NewPath) > 0 {
-			stream.RealURl = rtsp.NewPath
-			client, err = GetClient(rtsp.NewPath, stream.CustomPath, stream.TransType, stream.HeartbeatInterval)
-			if err != nil {
-				return err
+
+			if !client.Stoped {
+				client.Stop()
 			}
 
+			stream.RealURl = rtsp.NewPath
+			client.URL = rtsp.NewPath
 			rtsp.NewPath = ""
 
-			pusher = rtsp.NewClientPusher(client)
-			if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
-				pusher = rtsp.GetServer().GetPusher(pusher.Path())
-			}
 			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 			if err != nil {
 				log.Printf("Pull stream err :%v", err)

@@ -545,7 +545,9 @@ func (client *RTSPClient) Start(timeout time.Duration) (err error) {
 	if err != nil {
 		return
 	}
+
 	go client.startStream()
+
 	return
 }
 

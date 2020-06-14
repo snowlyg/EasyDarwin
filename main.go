@@ -157,17 +157,13 @@ func (p *program) Start(s service.Service) (err error) {
 				err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 				if err != nil {
 					if len(rtsp.NewPath) > 0 {
-						client, err = rtsp.NewRTSPClient(rtsp.GetServer(), rtsp.NewPath, int64(v.HeartbeatInterval)*1000, agent)
-						if err != nil {
-							continue
+						if !client.Stoped {
+							client.Stop()
 						}
+						client.URL = rtsp.NewPath
 						rtsp.NewPath = ""
 						client.CustomPath = v.CustomPath
 
-						pusher = rtsp.NewClientPusher(client)
-						if rtsp.GetServer().GetPusher(pusher.Path()) != nil {
-							continue
-						}
 						err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 						if err != nil {
 							log.Printf("Pull stream err :%v", err)
