@@ -119,11 +119,6 @@ func startStream(id string) error {
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
 		if len(rtsp.NewPath) > 0 {
-
-			if !client.Stoped {
-				client.Stop()
-			}
-
 			stream.RealURl = rtsp.NewPath
 			client.URL = rtsp.NewPath
 			rtsp.NewPath = ""

@@ -157,9 +157,6 @@ func (p *program) Start(s service.Service) (err error) {
 				err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 				if err != nil {
 					if len(rtsp.NewPath) > 0 {
-						if !client.Stoped {
-							client.Stop()
-						}
 						client.URL = rtsp.NewPath
 						rtsp.NewPath = ""
 						client.CustomPath = v.CustomPath
