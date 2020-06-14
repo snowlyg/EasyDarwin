@@ -378,6 +378,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 func (client *RTSPClient) startStream() {
 	startTime := time.Now()
 	loggerTime := time.Now().Add(-10 * time.Second)
+
 	defer client.Stop()
 	var header []byte
 	var content []byte
@@ -407,7 +408,8 @@ func (client *RTSPClient) startStream() {
 		case 0x24: // rtp
 			header = make([]byte, 4)
 			header[0] = b
-			_, err := io.ReadFull(client.connRW, append([]byte{}, header[1:]...))
+
+			_, err := io.ReadFull(client.connRW, header[1:])
 			if err != nil {
 				if !client.Stoped {
 					client.logger.Printf("io.ReadFull err:%v", err)
@@ -416,7 +418,7 @@ func (client *RTSPClient) startStream() {
 			}
 
 			channel := int(header[1])
-			length := binary.BigEndian.Uint16(append([]byte{}, header[2:]...))
+			length := binary.BigEndian.Uint16(header[2:])
 			content = make([]byte, length)
 			_, err = io.ReadFull(client.connRW, content)
 			if err != nil {
