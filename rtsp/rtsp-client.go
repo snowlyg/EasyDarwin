@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -136,34 +137,17 @@ func DigestAuth(authLine string, method string, URL string) (string, error) {
 	return Authorization, nil
 }
 
-func BasicAuth(authLine string, method string, URL string) (string, error) {
+func BasicAuth(URL string) (string, error) {
 	l, err := url.Parse(URL)
 	if err != nil {
 		return "", fmt.Errorf("Url parse error:%v,%v", URL, err)
 	}
-	realm := ""
-	nonce := ""
-	realmRex := regexp.MustCompile(`realm="(.*?)"`)
-	result1 := realmRex.FindStringSubmatch(authLine)
 
-	if len(result1) == 2 {
-		realm = result1[1]
-	} else {
-		return "", fmt.Errorf("auth error : no realm found")
-	}
-
-	// response= md5(md5(username:realm:password):nonce:md5(public_method:url));
 	username := l.User.Username()
 	password, _ := l.User.Password()
-	l.User = nil
-	if l.Port() == "" {
-		l.Host = fmt.Sprintf("%s:%s", l.Host, "554")
-	}
-	md5UserRealmPwd := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%s:%s:%s", username, realm, password))))
-	md5MethodURL := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%s:%s", method, l.String()))))
+	encodeToString := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
 
-	response := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%s:%s:%s", md5UserRealmPwd, nonce, md5MethodURL))))
-	Authorization := fmt.Sprintf("Basic username=\"%s\", realm=\"%s\", uri=\"%s\", response=\"%s\"", username, realm, l.String(), response)
+	Authorization := fmt.Sprintf("Basic %s", encodeToString)
 	return Authorization, nil
 }
 
@@ -183,8 +167,7 @@ func (client *RTSPClient) checkAuth(method string, resp *Response) (string, erro
 					client.authLine = authLine
 					return DigestAuth(authLine, method, client.URL)
 				} else if strings.IndexAny(authLine, "Basic") == 0 {
-					client.authLine = authLine
-					return BasicAuth(authLine, method, client.URL)
+					return BasicAuth(client.URL)
 				}
 
 			}
@@ -195,8 +178,7 @@ func (client *RTSPClient) checkAuth(method string, resp *Response) (string, erro
 				client.authLine = authLine
 				return DigestAuth(authLine, method, client.URL)
 			} else if strings.IndexAny(authLine, "Basic") == 0 {
-				client.authLine = authLine
-				return BasicAuth(authLine, method, client.URL)
+				return BasicAuth(client.URL)
 			}
 		}
 	}
