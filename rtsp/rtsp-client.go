@@ -357,160 +357,159 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 	return nil
 }
 
-func (client *RTSPClient) startStream(packs chan *RTPPack) {
+func (client *RTSPClient) startStream() {
 	startTime := time.Now()
 	loggerTime := time.Now().Add(-10 * time.Second)
-	if client.OptionIntervalMillis > 0 {
-		if time.Since(startTime) > time.Duration(client.OptionIntervalMillis)*time.Millisecond {
-			startTime = time.Now()
-			headers := make(map[string]string)
-			headers["Require"] = "implicit-play"
-			// An OPTIONS request returns the request types the server will accept.
-			if err := client.RequestNoResp("OPTIONS", headers); err != nil {
-				// ignore...
-			}
-		}
-	}
-
-	b, err := client.connRW.ReadByte()
-	if err != nil {
-		if !client.Stoped {
-			client.logger.Printf("client.connRW.ReadByte err:%v", err)
-		}
-		//client.Stop()
-		return
-	}
-
-	switch b {
-	case 0x24: // rtp
-		header := make([]byte, 4)
-		header[0] = b
-
-		_, err := io.ReadFull(client.connRW, header[1:])
-		if err != nil {
-			if !client.Stoped {
-				client.logger.Printf("io.ReadFull err:%v", err)
-			}
-			//client.Stop()
-			return
-		}
-
-		channel := int(header[1])
-		length := binary.BigEndian.Uint16(header[2:])
-		content := make([]byte, length)
-		_, err = io.ReadFull(client.connRW, content)
-		if err != nil {
-			if !client.Stoped {
-				client.logger.Printf("io.ReadFull err:%v", err)
-			}
-			//client.Stop()
-			return
-		}
-
-		//ch <- append(header, content...)
-		rtpBuf := bytes.NewBuffer(content)
-
-		var pack *RTPPack
-		switch channel {
-		case client.aRTPChannel:
-			pack = &RTPPack{
-				Type:   RTP_TYPE_AUDIO,
-				Buffer: rtpBuf,
-			}
-		case client.aRTPControlChannel:
-			pack = &RTPPack{
-				Type:   RTP_TYPE_AUDIOCONTROL,
-				Buffer: rtpBuf,
-			}
-		case client.vRTPChannel:
-			pack = &RTPPack{
-				Type:   RTP_TYPE_VIDEO,
-				Buffer: rtpBuf,
-			}
-		case client.vRTPControlChannel:
-			pack = &RTPPack{
-				Type:   RTP_TYPE_VIDEOCONTROL,
-				Buffer: rtpBuf,
-			}
-		default:
-			client.logger.Printf("unknow rtp pack type, channel:%v", channel)
-		}
-
-		if pack == nil {
-			client.logger.Printf("session tcp got nil rtp pack")
-			//client.Stop()
-			return
-		}
-
-		if client.debugLogEnable {
-			rtp := ParseRTP(pack.Buffer.Bytes())
-			if rtp != nil {
-				rtpSN := uint16(rtp.SequenceNumber)
-				if client.lastRtpSN != 0 && client.lastRtpSN+1 != rtpSN {
-					client.logger.Printf("%s, %d packets lost, current SN=%d, last SN=%d\n", client.String(), rtpSN-client.lastRtpSN, rtpSN, client.lastRtpSN)
+	defer client.Stop()
+	for !client.Stoped {
+		if client.OptionIntervalMillis > 0 {
+			if time.Since(startTime) > time.Duration(client.OptionIntervalMillis)*time.Millisecond {
+				startTime = time.Now()
+				headers := make(map[string]string)
+				headers["Require"] = "implicit-play"
+				// An OPTIONS request returns the request types the server will accept.
+				if err := client.RequestNoResp("OPTIONS", headers); err != nil {
+					// ignore...
 				}
-				client.lastRtpSN = rtpSN
-			}
-
-			elapsed := time.Now().Sub(loggerTime)
-			if elapsed >= 30*time.Second {
-				client.logger.Printf("%v read rtp frame.", client)
-				loggerTime = time.Now()
 			}
 		}
 
-		client.InBytes += int(length + 4)
-		packs <- pack
+		b, err := client.connRW.ReadByte()
+		if err != nil {
+			if !client.Stoped {
+				client.logger.Printf("client.connRW.ReadByte err:%v", err)
+			}
+			return
+		}
 
-	default: // rtsp
-		builder := bytes.Buffer{}
-		builder.WriteByte(b)
-		contentLen := 0
-		for !client.Stoped {
-			line, prefix, err := client.connRW.ReadLine()
+		switch b {
+		case 0x24: // rtp
+			header := make([]byte, 4)
+			header[0] = b
+
+			_, err := io.ReadFull(client.connRW, header[1:])
 			if err != nil {
 				if !client.Stoped {
-					client.logger.Printf("client.connRW.ReadLine err:%v", err)
+					client.logger.Printf("io.ReadFull err:%v", err)
 				}
-				//client.Stop()
 				return
 			}
-			if len(line) == 0 {
-				if contentLen != 0 {
-					content := make([]byte, contentLen)
-					_, err = io.ReadFull(client.connRW, content)
-					if err != nil {
-						if !client.Stoped {
-							err = fmt.Errorf("Read content err.ContentLength:%d", contentLen)
-						}
-						//client.Stop()
-						return
-					}
-					builder.Write(content)
+
+			channel := int(header[1])
+			length := binary.BigEndian.Uint16(header[2:])
+			content := make([]byte, length)
+			_, err = io.ReadFull(client.connRW, content)
+			if err != nil {
+				if !client.Stoped {
+					client.logger.Printf("io.ReadFull err:%v", err)
 				}
-				client.logger.Printf("<<<[IN]\n%s", builder.String())
-				break
-			}
-			s := string(line)
-			builder.Write(line)
-			if !prefix {
-				builder.WriteString("\r\n")
+				return
 			}
 
-			if strings.Index(s, "Content-Length:") == 0 {
-				splits := strings.Split(s, ":")
-				contentLen, err = strconv.Atoi(strings.TrimSpace(splits[1]))
+			//ch <- append(header, content...)
+			rtpBuf := bytes.NewBuffer(content)
+
+			var pack *RTPPack
+			switch channel {
+			case client.aRTPChannel:
+				pack = &RTPPack{
+					Type:   RTP_TYPE_AUDIO,
+					Buffer: rtpBuf,
+				}
+			case client.aRTPControlChannel:
+				pack = &RTPPack{
+					Type:   RTP_TYPE_AUDIOCONTROL,
+					Buffer: rtpBuf,
+				}
+			case client.vRTPChannel:
+				pack = &RTPPack{
+					Type:   RTP_TYPE_VIDEO,
+					Buffer: rtpBuf,
+				}
+			case client.vRTPControlChannel:
+				pack = &RTPPack{
+					Type:   RTP_TYPE_VIDEOCONTROL,
+					Buffer: rtpBuf,
+				}
+			default:
+				client.logger.Printf("unknow rtp pack type, channel:%v", channel)
+				continue
+			}
+
+			if pack == nil {
+				client.logger.Printf("session tcp got nil rtp pack")
+				continue
+			}
+
+			if client.debugLogEnable {
+				rtp := ParseRTP(pack.Buffer.Bytes())
+				if rtp != nil {
+					rtpSN := uint16(rtp.SequenceNumber)
+					if client.lastRtpSN != 0 && client.lastRtpSN+1 != rtpSN {
+						client.logger.Printf("%s, %d packets lost, current SN=%d, last SN=%d\n", client.String(), rtpSN-client.lastRtpSN, rtpSN, client.lastRtpSN)
+					}
+					client.lastRtpSN = rtpSN
+				}
+
+				elapsed := time.Now().Sub(loggerTime)
+				if elapsed >= 30*time.Second {
+					client.logger.Printf("%v read rtp frame.", client)
+					loggerTime = time.Now()
+				}
+			}
+
+			client.InBytes += int(length + 4)
+			for _, h := range client.RTPHandles {
+				h(pack)
+			}
+
+		default: // rtsp
+
+			builder := bytes.Buffer{}
+			builder.WriteByte(b)
+			contentLen := 0
+			for !client.Stoped {
+				line, prefix, err := client.connRW.ReadLine()
 				if err != nil {
 					if !client.Stoped {
-						client.logger.Printf("strconv.Atoi err:%v, str:%v", err, splits[1])
+						client.logger.Printf("client.connRW.ReadLine err:%v", err)
 					}
-					client.Stop()
-					//return
+					return
+				}
+				if len(line) == 0 {
+					if contentLen != 0 {
+						content := make([]byte, contentLen)
+						_, err = io.ReadFull(client.connRW, content)
+						if err != nil {
+							if !client.Stoped {
+								err = fmt.Errorf("Read content err.ContentLength:%d", contentLen)
+							}
+							return
+						}
+						builder.Write(content)
+					}
+					client.logger.Printf("<<<[IN]\n%s", builder.String())
+					break
+				}
+				s := string(line)
+				builder.Write(line)
+				if !prefix {
+					builder.WriteString("\r\n")
+				}
+
+				if strings.Index(s, "Content-Length:") == 0 {
+					splits := strings.Split(s, ":")
+					contentLen, err = strconv.Atoi(strings.TrimSpace(splits[1]))
+					if err != nil {
+						if !client.Stoped {
+							client.logger.Printf("strconv.Atoi err:%v, str:%v", err, splits[1])
+						}
+						return
+					}
 				}
 			}
 		}
 	}
-	return
 }
 
 func (client *RTSPClient) Start(timeout time.Duration) (err error) {
@@ -523,20 +522,7 @@ func (client *RTSPClient) Start(timeout time.Duration) (err error) {
 		return
 	}
 
-	packs := make(chan *RTPPack, 3)
-	go func(chan *RTPPack) {
-		for !client.Stoped {
-			client.startStream(packs)
-		}
-	}(packs)
-
-	go func(chan *RTPPack) {
-		for !client.Stoped {
-			for _, h := range client.RTPHandles {
-				h(<-packs)
-			}
-		}
-	}(packs)
+	go client.startStream()
 
 	return
 }
