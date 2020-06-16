@@ -541,7 +541,7 @@ func (client *RTSPClient) Start(timeout time.Duration) (err error) {
 		return
 	}
 
-	packs := make(chan *RTPPack, 10)
+	packs := make(chan *RTPPack, 3)
 	go func(chan *RTPPack) {
 		for !client.Stoped {
 			client.startStream(packs)
