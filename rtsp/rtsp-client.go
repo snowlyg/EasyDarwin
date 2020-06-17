@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -433,7 +434,6 @@ func (client *RTSPClient) startStream() {
 				}
 			default:
 				client.logger.Printf("unknow rtp pack type, channel:%v", channel)
-				continue
 			}
 
 			if pack == nil {
@@ -509,6 +509,15 @@ func (client *RTSPClient) startStream() {
 				}
 			}
 		}
+
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		//fmt.Printf("内存： %d Kb\n", m.Alloc / 1024)
+
+		if m.Alloc/1024/1024 == 5 {
+			runtime.GC()
+		}
+
 	}
 }
 
