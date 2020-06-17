@@ -512,11 +512,11 @@ func (client *RTSPClient) startStream() {
 
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
-		//fmt.Printf("内存： %d Kb\n", m.Alloc / 1024)
+		fmt.Printf("内存： %d M\n", m.Alloc/1024/1024)
 
-		if m.Alloc/1024/1024 == 5 {
-			runtime.GC()
-		}
+		//if m.Alloc/1024/1024 >= 50 {
+		//	runtime.GC()
+		//}
 
 	}
 }
