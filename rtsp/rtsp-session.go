@@ -142,7 +142,7 @@ func NewSession(server *Server, conn net.Conn) *Session {
 	timeoutMillis := utils.Conf().Section("rtsp").Key("timeout").MustInt(0)
 	timeoutTCPConn := &RichConn{conn, time.Duration(timeoutMillis) * time.Millisecond}
 	authorizationEnable := utils.Conf().Section("rtsp").Key("authorization_enable").MustInt(0)
-	close_old := utils.Conf().Section("rtsp").Key("close_old").MustInt(0)
+	closeOld := utils.Conf().Section("rtsp").Key("close_old").MustInt(0)
 	debugLogEnable := utils.Conf().Section("rtsp").Key("debug_log_enable").MustInt(0)
 	session := &Session{
 		ID:                  shortid.MustGenerate(),
@@ -159,7 +159,7 @@ func NewSession(server *Server, conn net.Conn) *Session {
 		vRTPControlChannel:  -1,
 		aRTPChannel:         -1,
 		aRTPControlChannel:  -1,
-		closeOld:            close_old != 0,
+		closeOld:            closeOld != 0,
 	}
 
 	session.logger = log.New(os.Stdout, fmt.Sprintf("[%s]", session.ID), log.LstdFlags|log.Lshortfile)
@@ -190,10 +190,12 @@ func (session *Session) Stop() {
 
 func (session *Session) Start() {
 	defer session.Stop()
+
 	buf1 := make([]byte, 1)
 	buf2 := make([]byte, 2)
 	logger := session.logger
 	timer := time.Unix(0, 0)
+
 	for !session.Stoped {
 		if _, err := io.ReadFull(session.connRW, buf1); err != nil {
 			logger.Println(session, err)
@@ -208,6 +210,7 @@ func (session *Session) Start() {
 				logger.Println(err)
 				return
 			}
+
 			channel := int(buf1[0])
 			rtpLen := int(binary.BigEndian.Uint16(buf2))
 			rtpBytes := make([]byte, rtpLen)
@@ -215,7 +218,9 @@ func (session *Session) Start() {
 				logger.Println(err)
 				return
 			}
+
 			rtpBuf := bytes.NewBuffer(rtpBytes)
+
 			var pack *RTPPack
 			switch channel {
 			case session.aRTPChannel:
@@ -249,17 +254,19 @@ func (session *Session) Start() {
 					Buffer: rtpBuf,
 				}
 			default:
-				logger.Printf("unknow rtp pack type, %v", pack.Type)
-				continue
+				logger.Printf("unknow rtp pack type, %v", channel)
 			}
+
 			if pack == nil {
 				logger.Printf("session tcp got nil rtp pack")
 				continue
 			}
+
 			session.InBytes += rtpLen + 4
 			for _, h := range session.RTPHandles {
 				h(pack)
 			}
+
 		} else { // rtsp cmd
 			reqBuf := bytes.NewBuffer(nil)
 			reqBuf.Write(buf1)

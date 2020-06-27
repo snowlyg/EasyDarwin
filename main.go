@@ -31,12 +31,15 @@ type program struct {
 }
 
 func (p *program) StopHTTP() (err error) {
+
 	if p.httpServer == nil {
 		err = fmt.Errorf("HTTP Server Not Found")
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
 	if err = p.httpServer.Shutdown(ctx); err != nil {
 		return
 	}
@@ -44,39 +47,49 @@ func (p *program) StopHTTP() (err error) {
 }
 
 func (p *program) StartHTTP() (err error) {
+
 	p.httpServer = &http.Server{
 		Addr:              fmt.Sprintf(":%d", p.httpPort),
 		Handler:           routers.Router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+
 	link := fmt.Sprintf("http://%s:%d", utils.LocalIP(), p.httpPort)
+
 	log.Println("http server start -->", link)
+
 	go func() {
 		if err := p.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Println("start http server error", err)
 		}
 		log.Println("http server end")
 	}()
+
 	return
 }
 
 func (p *program) StartRTSP() (err error) {
+
 	if p.rtspServer == nil {
 		err = fmt.Errorf("RTSP Server Not Found")
 		return
 	}
+
 	sport := ""
 	if p.rtspPort != 554 {
 		sport = fmt.Sprintf(":%d", p.rtspPort)
 	}
+
 	link := fmt.Sprintf("rtsp://%s%s", utils.LocalIP(), sport)
 	log.Println("rtsp server start -->", link)
+
 	go func() {
 		if err := p.rtspServer.Start(); err != nil {
 			log.Println("start rtsp server error", err)
 		}
 		log.Println("rtsp server end")
 	}()
+
 	return
 }
 
@@ -91,6 +104,7 @@ func (p *program) StopRTSP() (err error) {
 
 func (p *program) Start(s service.Service) (err error) {
 	log.Println("********** START **********")
+
 	if utils.IsPortInUse(p.httpPort) {
 		err = fmt.Errorf("HTTP port[%d] In Use", p.httpPort)
 		return
@@ -99,6 +113,7 @@ func (p *program) Start(s service.Service) (err error) {
 		err = fmt.Errorf("RTSP port[%d] In Use", p.rtspPort)
 		return
 	}
+
 	err = models.Init()
 	if err != nil {
 		return
@@ -107,13 +122,22 @@ func (p *program) Start(s service.Service) (err error) {
 	if err != nil {
 		return
 	}
-	p.StartRTSP()
-	p.StartHTTP()
 
+	err = p.StartRTSP()
+	if err != nil {
+		return
+	}
+	err = p.StartHTTP()
+	if err != nil {
+		return
+	}
+
+	utils.Debug = utils.Conf().Section("http").Key("debug").MustBool(false)
 	if !utils.Debug {
 		log.Println("log files -->", utils.LogDir())
 		log.SetOutput(utils.GetLogWriter())
 	}
+
 	go func() {
 		for range routers.API.RestartChan {
 			p.StopHTTP()
@@ -134,10 +158,12 @@ func (p *program) Start(s service.Service) (err error) {
 				return
 			}
 			for i := len(streams) - 1; i > -1; i-- {
+
 				v := streams[i]
 				if !v.Status {
 					continue
 				}
+
 				if rtsp.GetServer().GetPusher(v.CustomPath) != nil {
 					continue
 				}
@@ -146,21 +172,18 @@ func (p *program) Start(s service.Service) (err error) {
 				if routers.BuildDateTime != "" {
 					agent = fmt.Sprintf("%s(%s)", agent, routers.BuildDateTime)
 				}
-				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent)
+
+				client, err := rtsp.NewRTSPClient(rtsp.GetServer(), v.URL, int64(v.HeartbeatInterval)*1000, agent, v.CustomPath)
 				if err != nil {
 					continue
 				}
-				client.CustomPath = v.CustomPath
 
 				pusher := rtsp.NewClientPusher(client)
 
 				err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 				if err != nil {
-					if len(rtsp.NewPath) > 0 {
-						client.URL = rtsp.NewPath
-						rtsp.NewPath = ""
-						client.CustomPath = v.CustomPath
-
+					if len(client.NewURL) > 0 && client.URL != client.NewURL {
+						client.URL = client.NewURL
 						err = client.Start(time.Duration(v.IdleTimeout) * time.Second)
 						if err != nil {
 							log.Printf("Pull stream err :%v", err)
@@ -168,6 +191,7 @@ func (p *program) Start(s service.Service) (err error) {
 						}
 					}
 				}
+
 				rtsp.GetServer().AddPusher(pusher)
 				//streams = streams[0:i]
 				//streams = append(streams[:i], streams[i+1:]...)
@@ -239,4 +263,5 @@ func main() {
 		log.Println(err)
 		utils.PauseExit()
 	}
+
 }

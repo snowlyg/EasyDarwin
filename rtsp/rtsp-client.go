@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -23,14 +22,13 @@ import (
 	"github.com/teris-io/shortid"
 )
 
-var NewPath string
-
 type RTSPClient struct {
 	Server *Server
 	SessionLogger
 	Stoped               bool
 	Status               string
 	URL                  string
+	NewURL               string
 	Path                 string
 	CustomPath           string //custom path for pusher
 	ID                   string
@@ -71,8 +69,8 @@ func (client *RTSPClient) String() string {
 	return fmt.Sprintf("client[%s]", client.URL)
 }
 
-func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent string) (client *RTSPClient, err error) {
-	url, err := url.Parse(rawUrl)
+func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent, customPath string) (client *RTSPClient, err error) {
+	rUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return
 	}
@@ -82,7 +80,7 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent 
 		Stoped:               false,
 		URL:                  rawUrl,
 		ID:                   shortid.MustGenerate(),
-		Path:                 url.Path,
+		Path:                 rUrl.Path,
 		TransType:            TRANS_TYPE_TCP,
 		vRTPChannel:          0,
 		vRTPControlChannel:   1,
@@ -92,6 +90,7 @@ func NewRTSPClient(server *Server, rawUrl string, sendOptionMillis int64, agent 
 		StartAt:              time.Now(),
 		Agent:                agent,
 		debugLogEnable:       debugLogEnable != 0,
+		CustomPath:           customPath,
 	}
 	client.logger = log.New(os.Stdout, fmt.Sprintf("[%s]", client.ID), log.LstdFlags|log.Lshortfile)
 	if !utils.Debug {
@@ -300,7 +299,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 					client.logger.Printf("Setup video err.%v", err)
 					return err
 				}
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.VPort, client.UDPServer.VControlPort)
+				headers["Transport"] = fmt.Sprintf("RTP/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.VPort, client.UDPServer.VControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
@@ -333,7 +332,7 @@ func (client *RTSPClient) requestStream(timeout time.Duration) (err error) {
 					client.logger.Printf("Setup audio err.%v", err)
 					return err
 				}
-				headers["Transport"] = fmt.Sprintf("MP2T/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
+				headers["Transport"] = fmt.Sprintf("RTP/AVP/UDP;unicast;client_port=%d-%d", client.UDPServer.APort, client.UDPServer.AControlPort)
 				client.Conn.timeout = 0 //	UDP ignore timeout
 			}
 			if session != "" {
@@ -385,7 +384,7 @@ func (client *RTSPClient) startStream() {
 
 		switch b {
 		case 0x24: // rtp
-			header := make([]byte, 4)
+			header := make([]byte, 4, 4)
 			header[0] = b
 
 			_, err := io.ReadFull(client.connRW, header[1:])
@@ -398,7 +397,7 @@ func (client *RTSPClient) startStream() {
 
 			channel := int(header[1])
 			length := binary.BigEndian.Uint16(header[2:])
-			content := make([]byte, length)
+			content := make([]byte, length, length)
 			_, err = io.ReadFull(client.connRW, content)
 			if err != nil {
 				if !client.Stoped {
@@ -509,15 +508,6 @@ func (client *RTSPClient) startStream() {
 				}
 			}
 		}
-
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-		//fmt.Printf("内存： %d Kb\n", m.Alloc / 1024)
-
-		if m.Alloc/1024/1024 == 5 {
-			runtime.GC()
-		}
-
 	}
 }
 
@@ -606,7 +596,7 @@ func (client *RTSPClient) RequestWithPath(method string, path string, headers ma
 
 		// 获取重定向地址
 		if strings.Contains(s, "Location: ") {
-			NewPath = strings.Replace(s, "Location: ", "", -1)
+			client.NewURL = strings.Replace(s, "Location: ", "", -1)
 		}
 
 		builder.Write(line)

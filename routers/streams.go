@@ -118,10 +118,9 @@ func startStream(id string) error {
 
 	err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 	if err != nil {
-		if len(rtsp.NewPath) > 0 {
-			stream.RealURl = rtsp.NewPath
-			client.URL = rtsp.NewPath
-			rtsp.NewPath = ""
+		if len(client.NewURL) > 0 && client.URL != client.NewURL {
+			stream.RealURl = client.NewURL
+			client.URL = client.NewURL
 
 			err = client.Start(time.Duration(stream.IdleTimeout) * time.Second)
 			if err != nil {
@@ -189,14 +188,13 @@ func GetClient(url, customPath, fTransType string, heartbeatInterval int) (*rtsp
 	if BuildDateTime != "" {
 		agent = fmt.Sprintf("%s(%s)", agent, BuildDateTime)
 	}
-	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), url, int64(heartbeatInterval)*1000, agent)
-	if err != nil {
-		return nil, err
-	}
 	if customPath != "" && !strings.HasPrefix(customPath, "/") {
 		customPath = "/" + customPath
 	}
-	client.CustomPath = customPath
+	client, err := rtsp.NewRTSPClient(rtsp.GetServer(), url, int64(heartbeatInterval)*1000, agent, customPath)
+	if err != nil {
+		return nil, err
+	}
 
 	client.TransType = GetTransType(fTransType)
 
